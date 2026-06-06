@@ -1,0 +1,86 @@
+use anyhow::Result;
+use futures_util::StreamExt;
+use rusqlite::{Connection, OptionalExtension};
+use std::time::Duration;
+use temporalio_client::{Client, WorkflowListOptions};
+use tokio::time::{MissedTickBehavior, interval};
+use tokio_util::sync::CancellationToken;
+use tracing::{error, info};
+
+use crate::{db, temporal, tokenizer};
+
+pub async fn run(namespace: String, db_path: &str, token: CancellationToken) -> Result<()> {
+    let mut temp_client = temporal::connect(namespace.clone()).await?;
+    let db_conn = db::open(db_path)?;
+
+    let mut ticker = interval(Duration::from_secs(30));
+    ticker.set_missed_tick_behavior(MissedTickBehavior::Delay); // will rescheduled when finished + timeout time
+
+    loop {
+        tokio::select! {
+            _ = token.cancelled() => { info!("scanner stopping"); break; }
+            _ = ticker.tick() => {
+                if let Err(e) = scan(&mut temp_client, &namespace, &db_conn).await {
+                    error!(error = %e, "scan tick failed"); // log, keep looping
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn scan(temp_client: &mut Client, namespace: &str, db_conn: &Connection) -> Result<()> {
+    info!("start scannig");
+    std::thread::sleep(Duration::from_secs(60));
+    let mut stream = temp_client.list_workflows(
+        "ExecutionStatus = 'Running'",
+        WorkflowListOptions::builder().build(),
+    );
+
+    while let Some(workflow) = stream.next().await {
+        let wf = workflow?;
+        let new_history_length = wf.history_length();
+
+        let prev_history_length: Option<i64> = db_conn
+            .query_row(
+                "SELECT history_length FROM workflows WHERE workflow_id = ?1 AND run_id = ?2",
+                (wf.id(), wf.run_id()),
+                |r| r.get(0),
+            )
+            .optional()?;
+
+        if prev_history_length == Some(new_history_length) {
+            continue; // workflow was  unchanged
+        }
+
+        let events = temporal::fetch_history(temp_client, &namespace, wf.id(), wf.run_id()).await?;
+        let tokens: Vec<String> = events.iter().filter_map(tokenizer::event_token).collect();
+        let hash = tokenizer::semantic_hash(&tokens.join("\n"));
+
+        // info!(
+        //     "{}  type={}  run_id={}  task_queue={}",
+        //     wf.id(),
+        //     wf.workflow_type(),
+        //     wf.run_id(),
+        //     wf.task_queue(),
+        // );
+
+        info!(workflow_id = %wf.id(), wf_type = %wf.workflow_type(), "scanned");
+
+        db_conn.execute(
+            "INSERT OR REPLACE INTO workflows
+                      (workflow_id, run_id, workflow_type, history_length, semantic_hash)
+                   VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                wf.id(),
+                wf.run_id(),
+                wf.workflow_type(),
+                wf.history_length(),
+                &hash,
+            ),
+        )?;
+
+        info!("workflow {} id updated in db", wf.id());
+    }
+    Ok(())
+}
