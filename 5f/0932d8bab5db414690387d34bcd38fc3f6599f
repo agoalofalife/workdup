@@ -1,0 +1,23 @@
+src/cleanup.rs
+  s_5d3a25ca9d1e2d::t_99bb117d718b4a 50-54
+.gitignore
+  ai_agent 3-7
+src/temporal.rs
+  ai_agent 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "5f0932d8bab5db414690387d34bcd38fc3f6599f",
+  "prompts": {},
+  "sessions": {
+    "s_5d3a25ca9d1e2d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9da5f43e-0dfc-4c31-a98d-2c89caec415c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
