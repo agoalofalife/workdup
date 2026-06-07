@@ -11,17 +11,22 @@ use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-pub async fn run(namespace: String, db_path: &str, token: CancellationToken) -> Result<()> {
+pub async fn run(
+    namespace: String,
+    db_path: &str,
+    token: CancellationToken,
+    tick_interval: Duration,
+) -> Result<()> {
     let mut client = temporal::connect(namespace.clone()).await?;
-    let conn = db::open(&db_path)?;
+    let conn = db::open(db_path)?;
 
-    let mut ticker = interval(Duration::from_hours(1));
+    let mut ticker = interval(tick_interval);
 
     loop {
         tokio::select! {
             _ = token.cancelled() => { info!("cleanup stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = run_once(&mut client, &namespace, &conn).await {
+                if let Err(e) = run_once(&mut client, &namespace, &conn, &token).await {
                     error!(error = %e, "cleanup tick failed");
                 }
             }
@@ -30,7 +35,12 @@ pub async fn run(namespace: String, db_path: &str, token: CancellationToken) -> 
     Ok(())
 }
 
-async fn run_once(client: &mut Client, namespace: &str, conn: &SqliteConnection) -> Result<()> {
+async fn run_once(
+    client: &mut Client,
+    namespace: &str,
+    conn: &SqliteConnection,
+    token: &CancellationToken,
+) -> Result<()> {
     info!("Start clean database");
 
     // Oldest-checked records first, in small batches.
@@ -44,7 +54,11 @@ async fn run_once(client: &mut Client, namespace: &str, conn: &SqliteConnection)
     };
 
     for (workflow_id, run_id) in candidates {
-        let status = describe_status(client, namespace, &workflow_id, &run_id).await?;
+        if token.is_cancelled() {
+            info!("cancellation requested - stopping cleanup at safe point");
+            break;
+        }
+        let status = get_workflow_status(client, namespace, &workflow_id, &run_id).await?;
 
         if is_not_running(status) {
             // run_id is important, because continue_as_new feature
@@ -59,7 +73,7 @@ async fn run_once(client: &mut Client, namespace: &str, conn: &SqliteConnection)
     Ok(())
 }
 
-async fn describe_status(
+async fn get_workflow_status(
     client: &mut Client,
     namespace: &str,
     workflow_id: &str,

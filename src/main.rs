@@ -25,17 +25,16 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let namespace = cli.namespace.context("TEMPORAL_NAMESPACE was not set")?;
-
     let token = CancellationToken::new();
 
     let scanner = spawn_worker("scanner", {
         let (ns, path, tok) = (namespace.clone(), db_path, token.clone());
-        move || scanner::run(ns, path, tok)
+        move || scanner::run(ns, path, tok, cli.scan_interval)
     });
 
     let cleanup = spawn_worker("cleanup", {
         let (ns, path, tok) = (namespace.clone(), db_path, token.clone());
-        move || cleanup::run(ns, path, tok)
+        move || cleanup::run(ns, path, tok, cli.cleanup_interval)
     });
 
     Builder::new_current_thread()

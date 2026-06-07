@@ -9,18 +9,23 @@ use tracing::{error, info};
 
 use crate::{db, temporal, tokenizer};
 
-pub async fn run(namespace: String, db_path: &str, token: CancellationToken) -> Result<()> {
+pub async fn run(
+    namespace: String,
+    db_path: &str,
+    token: CancellationToken,
+    tick_interval: Duration,
+) -> Result<()> {
     let mut temp_client = temporal::connect(namespace.clone()).await?;
     let db_conn = db::open(db_path)?;
 
-    let mut ticker = interval(Duration::from_secs(30));
+    let mut ticker = interval(tick_interval);
     ticker.set_missed_tick_behavior(MissedTickBehavior::Delay); // will rescheduled when finished + timeout time
 
     loop {
         tokio::select! {
             _ = token.cancelled() => { info!("scanner stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = scan(&mut temp_client, &namespace, &db_conn).await {
+                if let Err(e) = scan(&mut temp_client, &namespace, &db_conn, &token).await {
                     error!(error = %e, "scan tick failed"); // log, keep looping
                 }
             }
@@ -29,15 +34,23 @@ pub async fn run(namespace: String, db_path: &str, token: CancellationToken) -> 
     Ok(())
 }
 
-async fn scan(temp_client: &mut Client, namespace: &str, db_conn: &Connection) -> Result<()> {
+async fn scan(
+    temp_client: &mut Client,
+    namespace: &str,
+    db_conn: &Connection,
+    token: &CancellationToken,
+) -> Result<()> {
     info!("start scannig");
-    std::thread::sleep(Duration::from_secs(60));
     let mut stream = temp_client.list_workflows(
         "ExecutionStatus = 'Running'",
         WorkflowListOptions::builder().build(),
     );
 
     while let Some(workflow) = stream.next().await {
+        if token.is_cancelled() {
+            info!("cancellation requested - stopping scanning at safe point");
+            break;
+        }
         let wf = workflow?;
         let new_history_length = wf.history_length();
 
@@ -53,7 +66,7 @@ async fn scan(temp_client: &mut Client, namespace: &str, db_conn: &Connection) -
             continue; // workflow was  unchanged
         }
 
-        let events = temporal::fetch_history(temp_client, &namespace, wf.id(), wf.run_id()).await?;
+        let events = temporal::fetch_history(temp_client, namespace, wf.id(), wf.run_id()).await?;
         let tokens: Vec<String> = events.iter().filter_map(tokenizer::event_token).collect();
         let hash = tokenizer::semantic_hash(&tokens.join("\n"));
 
