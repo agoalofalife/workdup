@@ -15,6 +15,11 @@ pub struct Cli {
     /// Scaning running workflow interval, e.g. `23s`, `30m`, `24h`, `4d` (units: s, m, h, d — d is max)
     #[arg(long, value_parser = parse_cleanup_interval, default_value="1h")]
     pub scan_interval: Duration,
+
+    /// http server settings
+
+    #[arg(long, default_value_t = 8000)]
+    pub port: u16,
 }
 
 fn parse_cleanup_interval(raw: &str) -> Result<Duration, String> {

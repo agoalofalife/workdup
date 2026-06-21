@@ -58,16 +58,22 @@ async fn run_once(
             info!("cancellation requested - stopping cleanup at safe point");
             break;
         }
-        let status = get_workflow_status(client, namespace, &workflow_id, &run_id).await?;
 
-        if is_not_running(status) {
-            // run_id is important, because continue_as_new feature
-            // workflow_id might have few run ids
-            conn.execute(
-                "DELETE FROM workflows WHERE workflow_id = ?1 AND run_id = ?2",
-                (&workflow_id, &run_id),
-            )?;
-            info!(%workflow_id, ?status, "cleanup: removed completed workflow");
+        let status = get_workflow_status(client, namespace, &workflow_id, &run_id).await;
+
+        match status {
+            Err(err) => error!("Some error occured when trying to fetch workflow status: {err}"),
+            Ok(status) => {
+                if is_not_running(status) {
+                    // run_id is important, because continue_as_new feature
+                    // workflow_id might have few run ids
+                    conn.execute(
+                        "DELETE FROM workflows WHERE workflow_id = ?1 AND run_id = ?2",
+                        (&workflow_id, &run_id),
+                    )?;
+                    info!(%workflow_id, ?status, "cleanup: removed completed workflow");
+                }
+            }
         }
     }
     Ok(())

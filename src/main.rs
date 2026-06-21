@@ -1,6 +1,7 @@
 mod cleanup;
 mod cli;
 mod db;
+mod http;
 mod logging;
 mod scanner;
 mod temporal;
@@ -37,6 +38,12 @@ fn main() -> Result<()> {
         move || cleanup::run(ns, path, tok, cli.cleanup_interval)
     });
 
+    let http = spawn_worker("http", {
+        let (path, token) = (db_path.to_string(), token.clone());
+
+        move || http::run(path, format!("0.0.0.0:{}", cli.port).to_string(), token)
+    });
+
     Builder::new_current_thread()
         .enable_all()
         .build()?
@@ -49,6 +56,7 @@ fn main() -> Result<()> {
 
     scanner.join().ok();
     cleanup.join().ok();
+    http.join().ok();
 
     info!("all workers stopped");
 
