@@ -1,0 +1,19 @@
+src/tokenizer.rs
+  s_91a230a6503567::t_cbe1df35df24ba 22-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "ffa39823b36484c2a74541d397674b174a4fb107",
+  "prompts": {},
+  "sessions": {
+    "s_91a230a6503567": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef86b-8a18-7572-a8b2-bb4cb304a1e1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
