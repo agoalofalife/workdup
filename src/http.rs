@@ -22,6 +22,7 @@ pub struct UniqueWorkflow {
 fn router(db_path: String) -> Router {
     Router::new()
         .route("/unique-workflows", get(list_unique_workflows))
+        .route("/stats", get(stats))
         .with_state(db_path)
 }
 
@@ -35,6 +36,39 @@ pub async fn run(db_path: String, addr: String, token: CancellationToken) -> any
         .with_graceful_shutdown(async move { token.cancelled().await })
         .await?;
     Ok(())
+}
+
+#[derive(Serialize)]
+pub struct Stats {
+    pub workflows_count: i64,
+    pub unique_workflows_count: i64,
+}
+
+async fn stats(State(db_path): State<String>) -> Result<Json<Vec<Stats>>, AppError> {
+    let rows = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Stats>> {
+        let conn = db::open(&db_path)?; // <-- a FRESH connection, every request
+
+        let mut stmt = conn.prepare(
+            "
+            SELECT count(*) as workflows_count, (SELECT
+            COUNT(distinct semantic_hash)
+            FROM workflows) as unique_workflows_count from workflows",
+        )?;
+
+        let items = stmt
+            .query_map([], |r| {
+                Ok(Stats {
+                    workflows_count: r.get("workflows_count")?,
+                    unique_workflows_count: r.get("unique_workflows_count")?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        Ok(items)
+    })
+    .await??; // 1st ? = blocking task join, 2nd ? = the query result
+
+    Ok(Json(rows))
 }
 
 async fn list_unique_workflows(

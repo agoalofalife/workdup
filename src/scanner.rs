@@ -40,9 +40,9 @@ async fn scan(
     db_conn: &Connection,
     token: &CancellationToken,
 ) -> Result<()> {
-    info!("start scannig");
+    info!("Start scannig");
     let mut stream = temp_client.list_workflows(
-        "ExecutionStatus = 'Running'",
+        "ExecutionStatus = 'Completed'",
         WorkflowListOptions::builder().build(),
     );
 
@@ -67,16 +67,26 @@ async fn scan(
         }
 
         let events = temporal::fetch_history(temp_client, namespace, wf.id(), wf.run_id()).await?;
-        let tokens: Vec<String> = events.iter().filter_map(tokenizer::event_token).collect();
-        let hash = tokenizer::semantic_hash(&tokens.join("\n"));
+        // let tokens: Vec<String> = events.iter().filter_map(tokenizer::event_token).collect();
 
-        // info!(
-        //     "{}  type={}  run_id={}  task_queue={}",
-        //     wf.id(),
-        //     wf.workflow_type(),
-        //     wf.run_id(),
-        //     wf.task_queue(),
-        // );
+        let tokens: Vec<String> = match events
+            .iter()
+            .map(tokenizer::event_token)
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(tokens) => tokens.into_iter().flatten().collect(),
+            Err(e) => {
+                error!(
+                    workflow_id = %wf.id(),
+                    run_id = %wf.run_id(),
+                    error = %e,
+                    "skipping workflow because semantic hash would be incomplete"
+                );
+                continue;
+            }
+        };
+
+        let hash = tokenizer::semantic_hash(&tokens.join("\n"));
 
         info!(workflow_id = %wf.id(), wf_type = %wf.workflow_type(), "scanned");
 

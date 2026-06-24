@@ -12,30 +12,58 @@ pub fn semantic_hash(tokens: &str) -> String {
         .collect()
 }
 
-use tracing::{error, warn};
-
-pub fn event_token(event: &HistoryEvent) -> Option<String> {
+pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
     match event.event_type() {
-        EventType::WorkflowExecutionStarted => Some(format!("WS:{:?}", event.event_type())),
-        EventType::ActivityTaskScheduled => Some(format!("A:{:?}", event.event_type())),
-        EventType::ActivityTaskCompleted => Some("AC".into()),
-        EventType::ActivityTaskFailed => Some(format!("AF:{:?}", event.event_type())),
-        EventType::ActivityTaskTimedOut => Some("ATO".into()),
+        EventType::WorkflowExecutionStarted => {
+            if let Some(Attributes::WorkflowExecutionStartedEventAttributes(attrs)) =
+                &event.attributes
+            {
+                let name = attrs
+                    .workflow_type
+                    .as_ref()
+                    .map(|t| t.name.as_str())
+                    .ok_or_else(|| {
+                        format!(
+                            "'WorkflowExecutionStarted' event {} is missing 'workflowExecutionStartedEventAttributes'",
+                            event.event_id
+                        )
+                    })?;
+
+                Ok(Some(format!("WS:{name}")))
+            } else {
+                Err(format!(
+                    "'WorkflowExecutionStarted' event {} is missing event attributes and could not find 'workflowExecutionStartedEventAttributes'",
+                    event.event_id
+                ))
+            }
+        }
+        EventType::ActivityTaskScheduled => Ok(Some(format!("A:{:?}", event.event_type()))),
+        EventType::ActivityTaskCompleted => Ok(Some("AC".into())),
+        EventType::ActivityTaskFailed => Ok(Some(format!("AF:{:?}", event.event_type()))),
+        EventType::ActivityTaskTimedOut => Ok(Some("ATO".into())),
         EventType::TimerStarted => {
             if let Some(Attributes::TimerStartedEventAttributes(attrs)) = &event.attributes {
                 let timeout = attrs
                     .start_to_fire_timeout
                     .as_ref()
                     .map(|d| d.seconds)
-                    .unwrap_or(0);
+                    .ok_or_else(|| {
+                        format!(
+                            "TimerStarted event {} has incorrect 'timerStartedEventAttributes.startToFireTimeout' attribute {:?}",
+                            event.event_id, attrs.start_to_fire_timeout,
+                        )
+                    })?;
 
-                Some(format!("T:{:?}", bucket(timeout)))
+                Ok(Some(format!("T:{:?}", bucket(timeout))))
             } else {
-                None
+                Err(format!(
+                    "TimerStarted event {} is missing event attributes and could not find 'timerStartedEventAttributes' attribute",
+                    event.event_id
+                ))
             }
         }
-        EventType::TimerFired => Some("TF".into()),
-        EventType::TimerCanceled => Some("TX".into()),
+        EventType::TimerFired => Ok(Some("TF".into())),
+        EventType::TimerCanceled => Ok(Some("TX".into())),
         EventType::MarkerRecorded => {
             if let Some(Attributes::MarkerRecordedEventAttributes(attrs)) = &event.attributes {
                 match attrs.marker_name.as_str() {
@@ -52,53 +80,76 @@ pub fn event_token(event: &HistoryEvent) -> Option<String> {
                             .and_then(|p| p.payloads.first())
                             .and_then(|p| serde_json::from_slice(&p.data).ok());
 
-                        if let (Some(id), Some(v)) = (change_id, version) {
-                            Some(format!("V:\"{}\":{}", id, v)) // V:"my-change":2
+                        if let (Some(id), Some(v)) = (change_id.as_ref(), version) {
+                            Ok(Some(format!("V:\"{}\":{}", id, v))) // V:"my-change":2
                         } else {
-                            None
+                            Err(format!(
+                                "MarkerRecorded event {} has invalid attribute 'markerRecordedEventAttributes' with change_id {:?} or version {:?}",
+                                event.event_id, change_id, version
+                            ))
                         }
                     }
-                    "SideEffect" => Some("SE".into()),
-                    undefined => {
-                        warn!("new type {} of MarkerRecorded", undefined);
-                        None
-                    }
+                    "SideEffect" => Ok(Some("SE".into())),
+                    undefined => Err(format!(
+                        "MarkerRecorded event {} has undefined markerName value: {}, please pay attention and handle it..",
+                        event.event_id, undefined
+                    )),
                 }
             } else {
-                None
+                Err(format!(
+                    "MarkerRecorded event {} is missing event attributes and could not find 'markerRecordedEventAttributes' attribute",
+                    event.event_id
+                ))
             }
         }
         EventType::StartChildWorkflowExecutionInitiated => {
-            Some(format!("C:{:?}", event.event_type()))
+            Ok(Some(format!("C:{:?}", event.event_type())))
         }
-        EventType::ChildWorkflowExecutionCompleted => Some("CC".into()),
-        EventType::ChildWorkflowExecutionFailed => Some(format!("CF:{:?}", event.event_type())),
-        EventType::ChildWorkflowExecutionTimedOut => Some("CTO".into()),
-        EventType::ChildWorkflowExecutionCanceled => Some("CCx".into()),
-        EventType::WorkflowExecutionCancelRequested => Some("CR".into()),
-        EventType::WorkflowExecutionSignaled => Some(format!("S:{:?}", event.event_type())),
-        EventType::WorkflowExecutionCanceled => Some("DONE:canceled".into()),
-        EventType::WorkflowExecutionCompleted => Some("DONE:success".into()),
+        EventType::ChildWorkflowExecutionCompleted => Ok(Some("CC".into())),
+        EventType::ChildWorkflowExecutionFailed => Ok(Some(format!("CF:{:?}", event.event_type()))),
+        EventType::ChildWorkflowExecutionTimedOut => Ok(Some("CTO".into())),
+        EventType::ChildWorkflowExecutionCanceled => Ok(Some("CCx".into())),
+        EventType::WorkflowExecutionCancelRequested => Ok(Some("CR".into())),
+        EventType::WorkflowExecutionSignaled => Ok(Some(format!("S:{:?}", event.event_type()))),
+        EventType::WorkflowExecutionCanceled => Ok(Some("DONE:canceled".into())),
+        EventType::WorkflowExecutionCompleted => Ok(Some("DONE:success".into())),
         EventType::WorkflowExecutionFailed => {
             if let Some(Attributes::WorkflowExecutionFailedEventAttributes(a)) = &event.attributes {
-                let info = a
-                    .failure
-                    .as_ref()
-                    .map(|f| match &f.failure_info {
-                        Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
-                        Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
-                        Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
-                        _ => f.message.clone(), // fall back to message if no typed info
-                    })
-                    .unwrap_or_default();
-                Some(format!("DONE:failure:{}", info))
+                let failure = a.failure.as_ref().ok_or_else(|| {
+                    format!(
+                        "WorkflowExecutionFailed event {} is missing 'failure' attribute",
+                        event.event_id
+                    )
+                })?;
+
+                let info = match &failure.failure_info {
+                    Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
+                    Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
+                    Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
+                    Some(other) => {
+                        return Err(format!(
+                            "WorkflowExecutionFailed event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
+                            event.event_id, other
+                        ));
+                    }
+                    None => {
+                        return Err(format!(
+                            "WorkflowExecutionFailed event {} has no failure_info set",
+                            event.event_id
+                        ));
+                    }
+                };
+
+                Ok(Some(format!("DONE:failure:{}", info)))
             } else {
-                error!("Could not define type of WorkflowExecutionFailed");
-                None
+                Err(format!(
+                    "WorkflowExecutionFailed event {} is missing event attributes and could not find 'workflowExecutionFailedEventAttributes' attribute",
+                    event.event_id
+                ))
             }
         }
-        EventType::WorkflowExecutionTerminated => Some("DONE:terminated".into()),
-        EventType::WorkflowExecutionContinuedAsNew => Some("DONE:continue-as-new".into()),
+        EventType::WorkflowExecutionTerminated => Ok(Some("DONE:terminated".into())),
+        EventType::WorkflowExecutionContinuedAsNew => Ok(Some("DONE:continue-as-new".into())),
         EventType::WorkflowTaskScheduled
         | EventType::WorkflowTaskStarted
         | EventType::WorkflowTaskCompleted
@@ -106,14 +157,11 @@ pub fn event_token(event: &HistoryEvent) -> Option<String> {
         | EventType::ChildWorkflowExecutionStarted
         | EventType::UpsertWorkflowSearchAttributes
         | EventType::WorkflowTaskFailed
-        | EventType::WorkflowTaskTimedOut => None,
-        other => {
-            warn!(
-                "Undefined type while trying to make hash string: {:?}",
-                other
-            );
-            None
-        }
+        | EventType::WorkflowTaskTimedOut => Ok(None),
+        other => Err(format!(
+            "Undefined type while trying to make hash string: {:?}",
+            other
+        )),
     }
 }
 
