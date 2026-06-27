@@ -40,6 +40,7 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
         EventType::ActivityTaskScheduled => Ok(Some(format!("A:{:?}", event.event_type()))),
         EventType::ActivityTaskCompleted => Ok(Some("AC".into())),
         EventType::ActivityTaskFailed => Ok(Some(format!("AF:{:?}", event.event_type()))),
+        EventType::ActivityTaskCanceled => Ok(Some("ACx".into())),
         EventType::ActivityTaskTimedOut => Ok(Some("ATO".into())),
         EventType::TimerStarted => {
             if let Some(Attributes::TimerStartedEventAttributes(attrs)) = &event.attributes {
@@ -54,7 +55,7 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
                         )
                     })?;
 
-                Ok(Some(format!("T:{:?}", bucket(timeout))))
+                Ok(Some(format!("T:{}", bucket(timeout))))
             } else {
                 Err(format!(
                     "TimerStarted event {} is missing event attributes and could not find 'timerStartedEventAttributes' attribute",
@@ -106,13 +107,49 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
             Ok(Some(format!("C:{:?}", event.event_type())))
         }
         EventType::ChildWorkflowExecutionCompleted => Ok(Some("CC".into())),
-        EventType::ChildWorkflowExecutionFailed => Ok(Some(format!("CF:{:?}", event.event_type()))),
+        EventType::ChildWorkflowExecutionTerminated => Ok(Some("CTx".into())),
+        EventType::ChildWorkflowExecutionFailed => {
+            if let Some(Attributes::WorkflowExecutionFailedEventAttributes(a)) = &event.attributes {
+                let failure = a.failure.as_ref().ok_or_else(|| {
+                    format!(
+                        "ChildWorkflowExecutionFailed event {} is missing 'failure' attribute",
+                        event.event_id
+                    )
+                })?;
+
+                let info = match &failure.failure_info {
+                    Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
+                    Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
+                    Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
+                    Some(other) => {
+                        return Err(format!(
+                            "ChildWorkflowExecutionFailed event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
+                            event.event_id, other
+                        ));
+                    }
+                    None => {
+                        return Err(format!(
+                            "ChildWorkflowExecutionFailed event {} has no failure_info set",
+                            event.event_id
+                        ));
+                    }
+                };
+
+                Ok(Some(format!("CF:{}", info)))
+            } else {
+                Err(format!(
+                    "WorkflowExecutionFailed event {} is missing event attributes and could not find 'workflowExecutionFailedEventAttributes' attribute",
+                    event.event_id
+                ))
+            }
+        }
         EventType::ChildWorkflowExecutionTimedOut => Ok(Some("CTO".into())),
         EventType::ChildWorkflowExecutionCanceled => Ok(Some("CCx".into())),
         EventType::WorkflowExecutionCancelRequested => Ok(Some("CR".into())),
         EventType::WorkflowExecutionSignaled => Ok(Some(format!("S:{:?}", event.event_type()))),
         EventType::WorkflowExecutionCanceled => Ok(Some("DONE:canceled".into())),
         EventType::WorkflowExecutionCompleted => Ok(Some("DONE:success".into())),
+        EventType::WorkflowExecutionTimedOut => Ok(Some("DONE:timedout".into())),
         EventType::WorkflowExecutionFailed => {
             if let Some(Attributes::WorkflowExecutionFailedEventAttributes(a)) = &event.attributes {
                 let failure = a.failure.as_ref().ok_or_else(|| {
@@ -150,13 +187,92 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
         }
         EventType::WorkflowExecutionTerminated => Ok(Some("DONE:terminated".into())),
         EventType::WorkflowExecutionContinuedAsNew => Ok(Some("DONE:continue-as-new".into())),
+        EventType::RequestCancelExternalWorkflowExecutionInitiated => Ok(Some("RCE".into())),
+        EventType::RequestCancelExternalWorkflowExecutionFailed => Ok(Some("RCEF".into())),
+        EventType::SignalExternalWorkflowExecutionFailed => Ok(Some("SIGF".into())),
+        EventType::WorkflowExecutionUpdateCompleted => Ok(Some("UC".into())),
+        EventType::SignalExternalWorkflowExecutionInitiated => {
+            if let Some(Attributes::WorkflowExecutionSignaledEventAttributes(attrs)) =
+                &event.attributes
+            {
+                Ok(Some(format!("SIG:{}", attrs.signal_name)))
+            } else {
+                Err(format!(
+                    "SignalExternalWorkflowExecutionInitiated event {} is missing event attributes and could not find 'WorkflowExecutionSignaledEventAttributes' attribute",
+                    event.event_id
+                ))
+            }
+        }
+        EventType::StartChildWorkflowExecutionFailed => {
+            if let Some(Attributes::StartChildWorkflowExecutionFailedEventAttributes(attrs)) =
+                &event.attributes
+            {
+                Ok(Some(format!("CSF:{:?}", attrs.cause())))
+            } else {
+                Err(format!(
+                    "StartChildWorkflowExecutionFailed event {} is missing event attributes and could not find 'StartChildWorkflowExecutionFailedEventAttributes' attribute",
+                    event.event_id
+                ))
+            }
+        }
+        EventType::WorkflowExecutionUpdateAccepted => {
+            if let Some(Attributes::WorkflowExecutionUpdateAcceptedEventAttributes(attrs)) =
+                &event.attributes
+            {
+                let name = attrs
+                    .accepted_request
+                    .as_ref()
+                    .and_then(|r| r.input.as_ref())
+                    .map(|i| i.name.clone())
+                    .ok_or_else(|| {
+                        format!(
+                            "WorkflowExecutionUpdateAccepted event {} has incorrect 'workflowExecutionUpdateAcceptedEventAttributes.accepted_request' attribute {:?}",
+                            event.event_id, attrs.accepted_request,
+                        )
+                    })?;
+
+                Ok(Some(format!("U:{}", name)))
+            } else {
+                Err(format!(
+                    "WorkflowExecutionUpdateAccepted event {} is missing event attributes and could not find 'WorkflowExecutionUpdateAcceptedEventAttributes' attribute",
+                    event.event_id
+                ))
+            }
+        }
+        EventType::WorkflowExecutionUpdateRejected => Err(format!(
+            "WorkflowExecutionUpdateRejected event {} does not expect to be in history",
+            event.event_id
+        )),
+        event_type @ (EventType::NexusOperationScheduled
+        | EventType::NexusOperationCompleted
+        | EventType::NexusOperationCanceled
+        | EventType::NexusOperationTimedOut
+        | EventType::NexusOperationCancelRequested
+        | EventType::NexusOperationStarted
+        | EventType::NexusOperationCancelRequestCompleted
+        | EventType::NexusOperationCancelRequestFailed
+        | EventType::NexusOperationFailed) => Err(format!(
+            "{event_type:?} event {} does not supported yet",
+            event.event_id
+        )),
         EventType::WorkflowTaskScheduled
         | EventType::WorkflowTaskStarted
         | EventType::WorkflowTaskCompleted
+        | EventType::WorkflowExecutionUnpaused
+        | EventType::WorkflowExecutionPaused
         | EventType::ActivityTaskStarted
+        | EventType::WorkflowExecutionOptionsUpdated
+        | EventType::WorkflowPropertiesModifiedExternally
+        | EventType::WorkflowPropertiesModified
+        | EventType::WorkflowExecutionUpdateAdmitted
+        | EventType::ActivityPropertiesModifiedExternally
         | EventType::ChildWorkflowExecutionStarted
+        | EventType::WorkflowExecutionTimeSkippingTransitioned
+        | EventType::ExternalWorkflowExecutionSignaled
         | EventType::UpsertWorkflowSearchAttributes
         | EventType::WorkflowTaskFailed
+        | EventType::ExternalWorkflowExecutionCancelRequested
+        | EventType::ActivityTaskCancelRequested
         | EventType::WorkflowTaskTimedOut => Ok(None),
         other => Err(format!(
             "Undefined type while trying to make hash string: {:?}",
