@@ -1,0 +1,24 @@
+src/tokenizer.rs
+  s_88268531c36664::t_469c735701f609 144-145,195-196,203-220,227-228
+  s_88268531c36664::t_68caadc96b8da5 141-143
+  s_88268531c36664::t_7dd241a22d8990 192-194
+  s_88268531c36664::t_33fd8c6e95dd99 197-202
+  s_88268531c36664::t_a352e9a0257d1a 221-226
+  s_88268531c36664::t_7a819635c923ef 229-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "5ac072bbcb2eefabdff483239118d2b5b9ea57b9",
+  "prompts": {},
+  "sessions": {
+    "s_88268531c36664": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c90eb-9a71-43da-b8f4-ff1caf0789f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
