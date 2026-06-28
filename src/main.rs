@@ -8,7 +8,6 @@ mod temporal;
 mod tokenizer;
 
 use crate::cli::Cli;
-use anyhow::Context;
 use anyhow::Result;
 use clap::Parser;
 use std::thread;
@@ -25,18 +24,27 @@ fn main() -> Result<()> {
     db::init_schema(db_path)?;
 
     let cli = Cli::parse();
-    let namespace = cli.namespace.context("TEMPORAL_NAMESPACE was not set")?;
+    let namespaces = cli.namespaces;
+
+    if namespaces.is_empty() {
+        anyhow::bail!("no namespaces: set --namespace");
+    }
     let token = CancellationToken::new();
 
-    let scanner = spawn_worker("scanner", {
-        let (ns, path, tok, query) = (namespace.clone(), db_path, token.clone(), cli.query.clone());
-        move || scanner::run(ns, path, tok, cli.scan_interval, query)
-    });
+    let mut workers = vec![];
 
-    let cleanup = spawn_worker("cleanup", {
-        let (ns, path, tok) = (namespace.clone(), db_path, token.clone());
-        move || cleanup::run(ns, path, tok, cli.cleanup_interval)
-    });
+    for ns in &namespaces {
+        workers.push(spawn_worker("scanner", {
+            tracing::info_span!("scanner", %ns);
+            let (ns, path, tok, query) = (ns.clone(), db_path, token.clone(), cli.query.clone());
+            move || scanner::run(ns, path, tok, cli.scan_interval, query)
+        }));
+
+        workers.push(spawn_worker("cleanup", {
+            let (ns, path, tok) = (ns.clone(), db_path, token.clone());
+            move || cleanup::run(ns, path, tok, cli.cleanup_interval)
+        }));
+    }
 
     let http = spawn_worker("http", {
         let (path, token) = (db_path.to_string(), token.clone());
@@ -54,8 +62,9 @@ fn main() -> Result<()> {
 
     token.cancel();
 
-    scanner.join().ok();
-    cleanup.join().ok();
+    for w in workers {
+        w.join().ok();
+    }
     http.join().ok();
 
     info!("all workers stopped");

@@ -55,8 +55,8 @@ async fn scan(
 
         let prev_history_length: Option<i64> = db_conn
             .query_row(
-                "SELECT history_length FROM workflows WHERE workflow_id = ?1 AND run_id = ?2",
-                (wf.id(), wf.run_id()),
+                "SELECT history_length FROM workflows WHERE namespace =?1 AND workflow_id = ?2 AND run_id = ?3",
+                (namespace, wf.id(), wf.run_id()),
                 |r| r.get(0),
             )
             .optional()?;
@@ -91,9 +91,10 @@ async fn scan(
 
         db_conn.execute(
             "INSERT OR REPLACE INTO workflows
-                      (workflow_id, run_id, workflow_type, history_length, semantic_hash)
-                   VALUES (?1, ?2, ?3, ?4, ?5)",
+                      (namespace, workflow_id, run_id, workflow_type, history_length, semantic_hash)
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             (
+                namespace,
                 wf.id(),
                 wf.run_id(),
                 wf.workflow_type(),

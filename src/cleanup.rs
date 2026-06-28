@@ -51,9 +51,9 @@ async fn run_once(
     let candidates: Vec<(String, String)> = {
         let mut stmt = conn.prepare(
             "SELECT workflow_id, run_id FROM workflows
-             WHERE last_checked <= datetime('now', '-1 days');",
+             WHERE namespace = ?1 AND last_checked <= datetime('now', '-1 days');",
         )?;
-        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        let rows = stmt.query_map([namespace], |r| Ok((r.get(0)?, r.get(1)?)))?;
         rows.collect::<rusqlite::Result<_>>()?
     };
 
@@ -68,7 +68,7 @@ async fn run_once(
                 if status != WorkflowExecutionStatus::Running {
                     // run_id is important, because continue_as_new feature
                     // workflow_id might have few run ids
-                    delete_workflow(conn, &workflow_id, &run_id)?;
+                    delete_workflow(conn, namespace, &workflow_id, &run_id)?;
                     info!(%workflow_id, ?status, "cleanup: removed completed workflow in temporal");
                 }
             }
@@ -76,7 +76,7 @@ async fn run_once(
             Err(status) => match status.code() {
                 Code::NotFound => {
                     // gone from temporal server, might be retention period for example if in temporal cloud
-                    delete_workflow(conn, &workflow_id, &run_id)?;
+                    delete_workflow(conn, namespace, &workflow_id, &run_id)?;
                     info!(%workflow_id, ?status, "cleanup: not found in temporal, removed state record");
                 }
                 Code::Unavailable | Code::DeadlineExceeded => {
@@ -118,10 +118,15 @@ async fn get_workflow_status(
     Ok(status)
 }
 
-fn delete_workflow(conn: &SqliteConnection, workflow_id: &str, run_id: &str) -> Result<()> {
+fn delete_workflow(
+    conn: &SqliteConnection,
+    namespace: &str,
+    workflow_id: &str,
+    run_id: &str,
+) -> Result<()> {
     conn.execute(
-        "DELETE FROM workflows WHERE workflow_id = ?1 AND run_id = ?2",
-        (&workflow_id, &run_id),
+        "DELETE FROM workflows WHERE namespace =?1 AND workflow_id = ?1 AND run_id = ?2",
+        (namespace, &workflow_id, &run_id),
     )?;
     Ok(())
 }

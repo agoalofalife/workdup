@@ -4,10 +4,11 @@ use std::time::Duration;
 #[derive(Parser)]
 #[command(name = "workdup", about = "Temporal workflow history deduplication")]
 pub struct Cli {
-    /// Temporal namespace (falls back to env var)
-    #[arg(long, env = "TEMPORAL_NAMESPACE")]
-    pub namespace: Option<String>,
+    /// Temporal namespaces (repeatable, or comma-separated)
+    #[arg(long, env = "TEMPORAL_NAMESPACE", value_delimiter = ',')]
+    pub namespaces: Vec<String>,
 
+    /// Cleanup section
     /// Cleanup interval, e.g. `23s`, `30m`, `24h`, `4d` (units: s, m, h, d — d is max)
     #[arg(long, value_parser = parse_cleanup_interval, default_value= "1d")]
     pub cleanup_interval: Duration,
@@ -22,8 +23,6 @@ pub struct Cli {
     pub scan_interval: Duration,
 
     /// Http server section
-    /// http server settings
-
     #[arg(long, default_value_t = 8000)]
     pub port: u16,
 }

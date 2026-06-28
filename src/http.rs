@@ -6,11 +6,16 @@ use axum::{
     routing::get,
 };
 
-use serde::Serialize;
+use crate::db;
+use axum::extract::Query;
+use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
-use crate::db;
+#[derive(Deserialize)]
+struct NsQuery {
+    namespace: String,
+}
 
 #[derive(Serialize)]
 pub struct UniqueWorkflow {
@@ -44,7 +49,11 @@ pub struct Stats {
     pub unique_workflows_count: i64,
 }
 
-async fn stats(State(db_path): State<String>) -> Result<Json<Vec<Stats>>, AppError> {
+/// GET /stats?namespace=foo
+async fn stats(
+    State(db_path): State<String>,
+    Query(q): Query<NsQuery>,
+) -> Result<Json<Vec<Stats>>, AppError> {
     let rows = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Stats>> {
         let conn = db::open(&db_path)?; // <-- a FRESH connection, every request
 
@@ -52,11 +61,12 @@ async fn stats(State(db_path): State<String>) -> Result<Json<Vec<Stats>>, AppErr
             "
             SELECT count(*) as workflows_count, (SELECT
             COUNT(distinct semantic_hash)
-            FROM workflows) as unique_workflows_count from workflows",
+            FROM workflows) as unique_workflows_count from workflows
+            WHERE namespace = ?1",
         )?;
 
         let items = stmt
-            .query_map([], |r| {
+            .query_map([&q.namespace], |r| {
                 Ok(Stats {
                     workflows_count: r.get("workflows_count")?,
                     unique_workflows_count: r.get("unique_workflows_count")?,
@@ -73,6 +83,7 @@ async fn stats(State(db_path): State<String>) -> Result<Json<Vec<Stats>>, AppErr
 
 async fn list_unique_workflows(
     State(db_path): State<String>,
+    Query(q): Query<NsQuery>,
 ) -> Result<Json<Vec<UniqueWorkflow>>, AppError> {
     // rusqlite is blocking + !Sync, so open + query on tokio's blocking pool,
     // not on the async thread.
@@ -82,11 +93,12 @@ async fn list_unique_workflows(
         let mut stmt = conn.prepare(
             "SELECT workflow_id, run_id, workflow_type
              FROM workflows
+             WHERE namespace = ?1
              GROUP BY semantic_hash",
         )?;
 
         let items = stmt
-            .query_map([], |r| {
+            .query_map([&q.namespace], |r| {
                 Ok(UniqueWorkflow {
                     workflow_id: r.get("workflow_id")?,
                     run_id: r.get("run_id")?,
