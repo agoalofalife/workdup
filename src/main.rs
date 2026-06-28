@@ -29,8 +29,8 @@ fn main() -> Result<()> {
     let token = CancellationToken::new();
 
     let scanner = spawn_worker("scanner", {
-        let (ns, path, tok) = (namespace.clone(), db_path, token.clone());
-        move || scanner::run(ns, path, tok, cli.scan_interval)
+        let (ns, path, tok, query) = (namespace.clone(), db_path, token.clone(), cli.query.clone());
+        move || scanner::run(ns, path, tok, cli.scan_interval, query)
     });
 
     let cleanup = spawn_worker("cleanup", {

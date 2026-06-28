@@ -12,10 +12,16 @@ pub struct Cli {
     #[arg(long, value_parser = parse_cleanup_interval, default_value= "1d")]
     pub cleanup_interval: Duration,
 
+    /// Scanning section
+    /// example  --query "WorkflowType = 'SubscriptionPayment' AND CloseTime > '2026-06-01T00:00:00Z'"
+    #[arg(long, default_value = "ExecutionStatus = 'Running'")]
+    pub query: String,
+
     /// Scaning running workflow interval, e.g. `23s`, `30m`, `24h`, `4d` (units: s, m, h, d — d is max)
     #[arg(long, value_parser = parse_cleanup_interval, default_value="1h")]
     pub scan_interval: Duration,
 
+    /// Http server section
     /// http server settings
 
     #[arg(long, default_value_t = 8000)]

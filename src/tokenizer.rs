@@ -1,5 +1,6 @@
 use sha2::{Digest, Sha256};
 use temporalio_common::protos::temporal::api::{
+    common::v1::Payload,
     enums::v1::EventType,
     failure::v1::failure::FailureInfo,
     history::v1::{HistoryEvent, history_event::Attributes},
@@ -12,178 +13,235 @@ pub fn semantic_hash(tokens: &str) -> String {
         .collect()
 }
 
-pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
-    match event.event_type() {
-        EventType::WorkflowExecutionStarted => {
-            if let Some(Attributes::WorkflowExecutionStartedEventAttributes(attrs)) =
-                &event.attributes
-            {
-                let name = attrs
-                    .workflow_type
-                    .as_ref()
-                    .map(|t| t.name.as_str())
-                    .ok_or_else(|| {
-                        format!(
-                            "'WorkflowExecutionStarted' event {} is missing 'workflowExecutionStartedEventAttributes'",
-                            event.event_id
-                        )
-                    })?;
-
-                Ok(Some(format!("WS:{name}")))
-            } else {
-                Err(format!(
-                    "'WorkflowExecutionStarted' event {} is missing event attributes and could not find 'workflowExecutionStartedEventAttributes'",
-                    event.event_id
-                ))
+macro_rules! expect_attrs {
+    ($event:expr, $variant:ident) => {
+        match &$event.attributes {
+            Some(Attributes::$variant(a)) => a,
+            _ => {
+                return Err(format!(
+                    "{:?} event {} is missing expected '{}'",
+                    $event.event_type(),
+                    $event.event_id,
+                    stringify!($variant)
+                ));
             }
         }
-        EventType::ActivityTaskScheduled => Ok(Some(format!("A:{:?}", event.event_type()))),
+    };
+}
+
+pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
+    let event_type = event.event_type();
+    match event_type {
+        EventType::WorkflowExecutionStarted => {
+            let attrs = expect_attrs!(event, WorkflowExecutionStartedEventAttributes);
+
+            let name = attrs
+                .workflow_type
+                .as_ref()
+                .map(|t| t.name.as_str())
+                .ok_or_else(|| {
+                    format!(
+                        "'{event_type:?}' event {} is missing 'workflowExecutionStartedEventAttributes'",
+                        event.event_id
+                    )
+                })?;
+
+            Ok(Some(format!("WS:{name}")))
+        }
+        EventType::ActivityTaskScheduled => {
+            let attrs = expect_attrs!(event, ActivityTaskScheduledEventAttributes);
+
+            let name = attrs
+                .activity_type
+                .as_ref()
+                .map(|t| t.name.as_str())
+                .ok_or_else(|| {
+                    format!(
+                        "'{event_type:?}' event {} is missing 'ActivityTaskScheduledEventAttributes'",
+                        event.event_id
+                    )
+                })?;
+
+            Ok(Some(format!("A:{name}")))
+        }
         EventType::ActivityTaskCompleted => Ok(Some("AC".into())),
-        EventType::ActivityTaskFailed => Ok(Some(format!("AF:{:?}", event.event_type()))),
+        EventType::ActivityTaskFailed => {
+            let attrs = expect_attrs!(event, ActivityTaskFailedEventAttributes);
+
+            let failure = attrs.failure.as_ref().ok_or_else(|| {
+                format!(
+                    "{event_type:?} event {} is missing 'failure' attribute",
+                    event.event_id
+                )
+            })?;
+
+            let info = match &failure.failure_info {
+                Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
+                Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
+                Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
+                Some(other) => {
+                    return Err(format!(
+                        "{event_type:?} event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
+                        event.event_id, other
+                    ));
+                }
+                None => {
+                    return Err(format!(
+                        "{event_type:?} event {} has no failure_info set",
+                        event.event_id
+                    ));
+                }
+            };
+
+            Ok(Some(format!("AF:{info}")))
+        }
         EventType::ActivityTaskCanceled => Ok(Some("ACx".into())),
         EventType::ActivityTaskTimedOut => Ok(Some("ATO".into())),
         EventType::TimerStarted => {
-            if let Some(Attributes::TimerStartedEventAttributes(attrs)) = &event.attributes {
-                let timeout = attrs
-                    .start_to_fire_timeout
-                    .as_ref()
-                    .map(|d| d.seconds)
-                    .ok_or_else(|| {
-                        format!(
-                            "TimerStarted event {} has incorrect 'timerStartedEventAttributes.startToFireTimeout' attribute {:?}",
-                            event.event_id, attrs.start_to_fire_timeout,
-                        )
-                    })?;
+            let attrs = expect_attrs!(event, TimerStartedEventAttributes);
 
-                Ok(Some(format!("T:{}", bucket(timeout))))
-            } else {
-                Err(format!(
-                    "TimerStarted event {} is missing event attributes and could not find 'timerStartedEventAttributes' attribute",
-                    event.event_id
-                ))
-            }
+            let timeout = attrs
+                .start_to_fire_timeout
+                .as_ref()
+                .map(|d| d.seconds)
+                .ok_or_else(|| {
+                    format!(
+                        "{event_type:?} event {} has incorrect 'timerStartedEventAttributes.startToFireTimeout' attribute {:?}",
+                        event.event_id, attrs.start_to_fire_timeout,
+                    )
+                })?;
+
+            Ok(Some(format!("T:{}", bucket(timeout))))
         }
         EventType::TimerFired => Ok(Some("TF".into())),
         EventType::TimerCanceled => Ok(Some("TX".into())),
         EventType::MarkerRecorded => {
-            if let Some(Attributes::MarkerRecordedEventAttributes(attrs)) = &event.attributes {
-                match attrs.marker_name.as_str() {
-                    "Version" => {
-                        let change_id: Option<String> = attrs
-                            .details
-                            .get("changeId")
-                            .and_then(|p| p.payloads.first())
-                            .and_then(|p| serde_json::from_slice(&p.data).ok());
+            let attrs = expect_attrs!(event, MarkerRecordedEventAttributes);
 
-                        let version: Option<i64> = attrs
-                            .details
-                            .get("version")
-                            .and_then(|p| p.payloads.first())
-                            .and_then(|p| serde_json::from_slice(&p.data).ok());
+            match attrs.marker_name.as_str() {
+                "Version" => {
+                    // Detail key differs by SDK: Go writes "changeId",
+                    // Java writes "change-id".
+                    let change_id = attrs
+                        .details
+                        .get("changeId")
+                        .or_else(|| attrs.details.get("change-id"))
+                        .and_then(|p| p.payloads.first())
+                        .and_then(marker_payload_string);
 
-                        if let (Some(id), Some(v)) = (change_id.as_ref(), version) {
-                            Ok(Some(format!("V:\"{}\":{}", id, v))) // V:"my-change":2
-                        } else {
-                            Err(format!(
-                                "MarkerRecorded event {} has invalid attribute 'markerRecordedEventAttributes' with change_id {:?} or version {:?}",
-                                event.event_id, change_id, version
-                            ))
-                        }
+                    let version: Option<i64> = attrs
+                        .details
+                        .get("version")
+                        .and_then(|p| p.payloads.first())
+                        .and_then(|p| serde_json::from_slice(&p.data).ok());
+
+                    match (change_id, version) {
+                        (Some(id), Some(v)) => Ok(Some(format!("V:{id:?}:{v}"))), // V:"my-change":2
+                        // changeId could not be recovered, but we still have a
+                        // version: keep the workflow scannable with a degraded
+                        // token rather than dropping the whole history.
+                        (None, Some(v)) => Ok(Some(format!("V:?:{v}"))),
+                        (id, v) => Err(format!(
+                            "{event_type:?} event {} has an unparseable 'Version' marker (changeId={id:?}, version={v:?})",
+                            event.event_id
+                        )),
                     }
-                    "SideEffect" => Ok(Some("SE".into())),
-                    undefined => Err(format!(
-                        "MarkerRecorded event {} has undefined markerName value: {}, please pay attention and handle it..",
-                        event.event_id, undefined
-                    )),
                 }
-            } else {
-                Err(format!(
-                    "MarkerRecorded event {} is missing event attributes and could not find 'markerRecordedEventAttributes' attribute",
-                    event.event_id
-                ))
+                "SideEffect" => Ok(Some("SE".into())),
+                undefined => Err(format!(
+                    "{:?} event {} has undefined markerName value: {}, please pay attention and handle it..",
+                    event_type, event.event_id, undefined
+                )),
             }
         }
         EventType::StartChildWorkflowExecutionInitiated => {
-            Ok(Some(format!("C:{:?}", event.event_type())))
+            let attrs = expect_attrs!(event, StartChildWorkflowExecutionInitiatedEventAttributes);
+
+            let name = attrs
+                .workflow_type
+                .as_ref()
+                .map(|t| t.name.as_str())
+                .ok_or_else(|| {
+                    format!(
+                        "'{event_type:?}' event {} is missing 'StartChildWorkflowExecutionInitiatedEventAttributes'",
+                        event.event_id
+                    )
+                })?;
+
+            Ok(Some(format!("C:{name}")))
         }
         EventType::ChildWorkflowExecutionCompleted => Ok(Some("CC".into())),
         EventType::ChildWorkflowExecutionTerminated => Ok(Some("CTx".into())),
         EventType::ChildWorkflowExecutionFailed => {
-            if let Some(Attributes::WorkflowExecutionFailedEventAttributes(a)) = &event.attributes {
-                let failure = a.failure.as_ref().ok_or_else(|| {
-                    format!(
-                        "ChildWorkflowExecutionFailed event {} is missing 'failure' attribute",
-                        event.event_id
-                    )
-                })?;
+            let attrs = expect_attrs!(event, ChildWorkflowExecutionFailedEventAttributes);
 
-                let info = match &failure.failure_info {
-                    Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
-                    Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
-                    Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
-                    Some(other) => {
-                        return Err(format!(
-                            "ChildWorkflowExecutionFailed event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
-                            event.event_id, other
-                        ));
-                    }
-                    None => {
-                        return Err(format!(
-                            "ChildWorkflowExecutionFailed event {} has no failure_info set",
-                            event.event_id
-                        ));
-                    }
-                };
-
-                Ok(Some(format!("CF:{}", info)))
-            } else {
-                Err(format!(
-                    "WorkflowExecutionFailed event {} is missing event attributes and could not find 'workflowExecutionFailedEventAttributes' attribute",
+            let failure = attrs.failure.as_ref().ok_or_else(|| {
+                format!(
+                    "{event_type:?} event {} is missing 'failure' attribute",
                     event.event_id
-                ))
-            }
+                )
+            })?;
+
+            let info = match &failure.failure_info {
+                Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
+                Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
+                Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
+                Some(other) => {
+                    return Err(format!(
+                        "{:?} event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
+                        event_type, event.event_id, other
+                    ));
+                }
+                None => {
+                    return Err(format!(
+                        "{:?} event {} has no failure_info set",
+                        event_type, event.event_id
+                    ));
+                }
+            };
+
+            Ok(Some(format!("CF:{info}")))
         }
         EventType::ChildWorkflowExecutionTimedOut => Ok(Some("CTO".into())),
         EventType::ChildWorkflowExecutionCanceled => Ok(Some("CCx".into())),
         EventType::WorkflowExecutionCancelRequested => Ok(Some("CR".into())),
-        EventType::WorkflowExecutionSignaled => Ok(Some(format!("S:{:?}", event.event_type()))),
+        EventType::WorkflowExecutionSignaled => {
+            let attrs = expect_attrs!(event, WorkflowExecutionSignaledEventAttributes);
+
+            Ok(Some(format!("S:{}", attrs.signal_name)))
+        }
         EventType::WorkflowExecutionCanceled => Ok(Some("DONE:canceled".into())),
         EventType::WorkflowExecutionCompleted => Ok(Some("DONE:success".into())),
         EventType::WorkflowExecutionTimedOut => Ok(Some("DONE:timedout".into())),
         EventType::WorkflowExecutionFailed => {
-            if let Some(Attributes::WorkflowExecutionFailedEventAttributes(a)) = &event.attributes {
-                let failure = a.failure.as_ref().ok_or_else(|| {
-                    format!(
-                        "WorkflowExecutionFailed event {} is missing 'failure' attribute",
-                        event.event_id
-                    )
-                })?;
+            let attrs = expect_attrs!(event, WorkflowExecutionFailedEventAttributes);
 
-                let info = match &failure.failure_info {
-                    Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
-                    Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
-                    Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
-                    Some(other) => {
-                        return Err(format!(
-                            "WorkflowExecutionFailed event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
-                            event.event_id, other
-                        ));
-                    }
-                    None => {
-                        return Err(format!(
-                            "WorkflowExecutionFailed event {} has no failure_info set",
-                            event.event_id
-                        ));
-                    }
-                };
-
-                Ok(Some(format!("DONE:failure:{}", info)))
-            } else {
-                Err(format!(
-                    "WorkflowExecutionFailed event {} is missing event attributes and could not find 'workflowExecutionFailedEventAttributes' attribute",
+            let failure = attrs.failure.as_ref().ok_or_else(|| {
+                format!(
+                    "{event_type:?} event {} is missing 'failure' attribute",
                     event.event_id
-                ))
-            }
+                )
+            })?;
+
+            let info = match &failure.failure_info {
+                Some(FailureInfo::ApplicationFailureInfo(app)) => app.r#type.clone(), // e.g. "MyError"
+                Some(FailureInfo::TimeoutFailureInfo(_)) => "Timeout".to_string(),
+                Some(FailureInfo::CanceledFailureInfo(_)) => "Canceled".to_string(),
+                Some(other) => {
+                    return Err(format!(
+                        "{event_type:?} event {} has an unhandled 'failure_info' variant: {:?}, please handle it",
+                        event.event_id, other
+                    ));
+                }
+                None => {
+                    return Err(format!(
+                        "{event_type:?} event {} has no failure_info set",
+                        event.event_id
+                    ));
+                }
+            };
+
+            Ok(Some(format!("DONE:failure:{info}")))
         }
         EventType::WorkflowExecutionTerminated => Ok(Some("DONE:terminated".into())),
         EventType::WorkflowExecutionContinuedAsNew => Ok(Some("DONE:continue-as-new".into())),
@@ -192,58 +250,40 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
         EventType::SignalExternalWorkflowExecutionFailed => Ok(Some("SIGF".into())),
         EventType::WorkflowExecutionUpdateCompleted => Ok(Some("UC".into())),
         EventType::SignalExternalWorkflowExecutionInitiated => {
-            if let Some(Attributes::WorkflowExecutionSignaledEventAttributes(attrs)) =
-                &event.attributes
-            {
-                Ok(Some(format!("SIG:{}", attrs.signal_name)))
-            } else {
-                Err(format!(
-                    "SignalExternalWorkflowExecutionInitiated event {} is missing event attributes and could not find 'WorkflowExecutionSignaledEventAttributes' attribute",
-                    event.event_id
-                ))
-            }
+            let attrs = expect_attrs!(
+                event,
+                SignalExternalWorkflowExecutionInitiatedEventAttributes
+            );
+
+            Ok(Some(format!("SIG:{}", attrs.signal_name)))
         }
         EventType::StartChildWorkflowExecutionFailed => {
-            if let Some(Attributes::StartChildWorkflowExecutionFailedEventAttributes(attrs)) =
-                &event.attributes
-            {
-                Ok(Some(format!("CSF:{:?}", attrs.cause())))
-            } else {
-                Err(format!(
-                    "StartChildWorkflowExecutionFailed event {} is missing event attributes and could not find 'StartChildWorkflowExecutionFailedEventAttributes' attribute",
-                    event.event_id
-                ))
-            }
+            let attrs = expect_attrs!(event, StartChildWorkflowExecutionFailedEventAttributes);
+
+            Ok(Some(format!("CSF:{:?}", attrs.cause())))
         }
         EventType::WorkflowExecutionUpdateAccepted => {
-            if let Some(Attributes::WorkflowExecutionUpdateAcceptedEventAttributes(attrs)) =
-                &event.attributes
-            {
-                let name = attrs
-                    .accepted_request
-                    .as_ref()
-                    .and_then(|r| r.input.as_ref())
-                    .map(|i| i.name.clone())
-                    .ok_or_else(|| {
-                        format!(
-                            "WorkflowExecutionUpdateAccepted event {} has incorrect 'workflowExecutionUpdateAcceptedEventAttributes.accepted_request' attribute {:?}",
-                            event.event_id, attrs.accepted_request,
-                        )
-                    })?;
+            let attrs = expect_attrs!(event, WorkflowExecutionUpdateAcceptedEventAttributes);
 
-                Ok(Some(format!("U:{}", name)))
-            } else {
-                Err(format!(
-                    "WorkflowExecutionUpdateAccepted event {} is missing event attributes and could not find 'WorkflowExecutionUpdateAcceptedEventAttributes' attribute",
-                    event.event_id
-                ))
-            }
+            let name = attrs
+                                .accepted_request
+                                .as_ref()
+                                .and_then(|r| r.input.as_ref())
+                                .map(|i| i.name.as_str())
+                                .ok_or_else(|| {
+                                    format!(
+                                        "{event_type:?} event {} has incorrect 'workflowExecutionUpdateAcceptedEventAttributes.accepted_request' attribute {:?}",
+                                        event.event_id, attrs.accepted_request,
+                                    )
+                                })?;
+
+            Ok(Some(format!("U:{name}")))
         }
         EventType::WorkflowExecutionUpdateRejected => Err(format!(
-            "WorkflowExecutionUpdateRejected event {} does not expect to be in history",
-            event.event_id
+            "{:?} event {} does not expect to be in history",
+            event_type, event.event_id
         )),
-        event_type @ (EventType::NexusOperationScheduled
+        EventType::NexusOperationScheduled
         | EventType::NexusOperationCompleted
         | EventType::NexusOperationCanceled
         | EventType::NexusOperationTimedOut
@@ -251,8 +291,8 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
         | EventType::NexusOperationStarted
         | EventType::NexusOperationCancelRequestCompleted
         | EventType::NexusOperationCancelRequestFailed
-        | EventType::NexusOperationFailed) => Err(format!(
-            "{event_type:?} event {} does not supported yet",
+        | EventType::NexusOperationFailed => Err(format!(
+            "{event_type:?} event {} is not supported yet",
             event.event_id
         )),
         EventType::WorkflowTaskScheduled
@@ -279,6 +319,23 @@ pub fn event_token(event: &HistoryEvent) -> Result<Option<String>, String> {
             other
         )),
     }
+}
+
+/// Read a marker-detail payload as a string.
+///
+/// Temporal's Go SDK writes the `changeId` as a JSON string (`json/plain` ->
+/// `"my-change"`), but some SDKs/versions store it as raw bytes
+/// (`binary/plain` -> `my-change`), which `serde_json::from_slice::<String>`
+/// rejects. Try JSON first, then fall back to the raw UTF-8 bytes so a single
+/// odd encoding never costs us the whole workflow.
+fn marker_payload_string(payload: &Payload) -> Option<String> {
+    if let Ok(s) = serde_json::from_slice::<String>(&payload.data) {
+        return Some(s);
+    }
+
+    let raw = String::from_utf8_lossy(&payload.data);
+    let trimmed = raw.trim().trim_matches('"');
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 fn bucket(seconds: i64) -> i64 {

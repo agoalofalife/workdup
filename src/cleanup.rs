@@ -65,17 +65,17 @@ async fn run_once(
 
         match get_workflow_status(client, namespace, &workflow_id, &run_id).await {
             Ok(status) => {
-                if is_not_running(status) {
+                if status != WorkflowExecutionStatus::Running {
                     // run_id is important, because continue_as_new feature
                     // workflow_id might have few run ids
-                    //
                     delete_workflow(conn, &workflow_id, &run_id)?;
-                    info!(%workflow_id, ?status, "cleanup: removed completed workflow");
+                    info!(%workflow_id, ?status, "cleanup: removed completed workflow in temporal");
                 }
             }
+
             Err(status) => match status.code() {
                 Code::NotFound => {
-                    // gone from temporal server, might be retention period for example
+                    // gone from temporal server, might be retention period for example if in temporal cloud
                     delete_workflow(conn, &workflow_id, &run_id)?;
                     info!(%workflow_id, ?status, "cleanup: not found in temporal, removed state record");
                 }
@@ -116,12 +116,6 @@ async fn get_workflow_status(
         .ok_or_else(|| Status::internal(format!("no execution info for {workflow_id}")))?
         .status();
     Ok(status)
-}
-
-fn is_not_running(s: WorkflowExecutionStatus) -> bool {
-    use WorkflowExecutionStatus::*;
-
-    s != Running
 }
 
 fn delete_workflow(conn: &SqliteConnection, workflow_id: &str, run_id: &str) -> Result<()> {

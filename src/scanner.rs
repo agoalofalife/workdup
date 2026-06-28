@@ -14,6 +14,7 @@ pub async fn run(
     db_path: &str,
     token: CancellationToken,
     tick_interval: Duration,
+    query: String,
 ) -> Result<()> {
     let mut temp_client = temporal::connect(namespace.clone()).await?;
     let db_conn = db::open(db_path)?;
@@ -25,7 +26,7 @@ pub async fn run(
         tokio::select! {
             _ = token.cancelled() => { info!("scanner stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = scan(&mut temp_client, &namespace, &db_conn, &token).await {
+                if let Err(e) = scan(&mut temp_client, &namespace, &db_conn, &token, &query).await {
                     error!(error = %e, "scan tick failed"); // log, keep looping
                 }
             }
@@ -39,12 +40,10 @@ async fn scan(
     namespace: &str,
     db_conn: &Connection,
     token: &CancellationToken,
+    query: &str,
 ) -> Result<()> {
     info!("Start scannig");
-    let mut stream = temp_client.list_workflows(
-        "ExecutionStatus = 'Completed'",
-        WorkflowListOptions::builder().build(),
-    );
+    let mut stream = temp_client.list_workflows(query, WorkflowListOptions::builder().build());
 
     while let Some(workflow) = stream.next().await {
         if token.is_cancelled() {
