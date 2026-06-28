@@ -1,0 +1,28 @@
+src/tokenizer.rs
+  s_9545ac876ecbf9::t_b6caea10c7a87f 125,130,132-136,138-147
+  s_9545ac876ecbf9::t_97ba94e4d263cf 30,324-340
+  s_9545ac876ecbf9::t_c033684428b152 3
+  s_9545ac876ecbf9::t_fa40aecf867292 123-124,128
+  s_9545ac876ecbf9::t_e81b4f6d1af041 27-29
+  s_9545ac876ecbf9::t_680c962c1732ce 31
+  s_9545ac876ecbf9::t_1c32ce0156a945 120-122
+  s_9545ac876ecbf9::t_3c2710d8f298bd 126-127
+  s_9545ac876ecbf9::t_fe0062359bd6be 129
+  s_9545ac876ecbf9::t_0b8ea06b623858 16-26,33-34,36,38-65,68-97,101,103-114,119,150-154,158-164,166,171-176,178-180,182-203,208-212,217,219-221,223-244,253-258,261-263,266,268-280,283-284,286,294-295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "37e5d45d728e3d8b79bdc5a63356a7c574735539",
+  "prompts": {},
+  "sessions": {
+    "s_9545ac876ecbf9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d6f2ab6-07c4-4fa9-9d80-f91eb8e9dad2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
