@@ -3,7 +3,9 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 pub fn init_logging() {
     let stdout_layer = fmt::layer()
-        .with_ansi(true) // coloring
+        .json()
+        .with_current_span(true)
+        .with_span_list(true)
         .with_writer(std::io::stdout);
 
     tracing_subscriber::registry()

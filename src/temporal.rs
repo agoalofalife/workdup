@@ -1,22 +1,70 @@
-use anyhow::{Result, anyhow};
 use temporalio_client::{
-    Client, ClientOptions, Connection, grpc::WorkflowService, tonic::IntoRequest,
+    Client, ClientOptions, ClientTlsOptions, Connection, ConnectionOptions, TlsOptions,
+    grpc::WorkflowService, tonic::IntoRequest,
 };
-use temporalio_common::envconfig::LoadClientConfigProfileOptions;
 use temporalio_common::protos::temporal::api::common::v1::WorkflowExecution as WfExec;
 use temporalio_common::protos::temporal::api::history::v1::HistoryEvent;
 use temporalio_common::protos::temporal::api::workflowservice::v1::GetWorkflowExecutionHistoryRequest;
 
-pub async fn connect(namespace: String) -> Result<Client> {
-    let (conn_opts, mut client_opts) =
-        ClientOptions::load_from_config(LoadClientConfigProfileOptions::default())
-            .map_err(|e| anyhow!("failed to load temporal config: {e}"))?;
+use crate::config::{ResolvedNamespace, Tls};
+use anyhow::{Context, Result};
+use std::fs;
+use url::Url;
 
-    client_opts.namespace = namespace;
+pub async fn connect(ns: &ResolvedNamespace) -> Result<Client> {
+    let use_tls = ns.tls.is_some() || ns.api_key.is_some();
+    let target = parse_target(&ns.host, use_tls)?;
+
+    let tls_options = match &ns.tls {
+        Some(tls) => Some(build_tls(tls)?),
+        None if ns.api_key.is_some() => Some(TlsOptions::default()),
+        None => None,
+    };
+    let conn_opts = ConnectionOptions::new(target)
+        .maybe_api_key(ns.api_key.clone())
+        .maybe_tls_options(tls_options)
+        .build();
+
+    let client_opts = ClientOptions::new(ns.name.clone()).build();
+
     let connection = Connection::connect(conn_opts).await?;
-    let client = Client::new(connection, client_opts.clone())?;
 
-    Ok(client)
+    Ok(Client::new(connection, client_opts)?)
+}
+
+/// `host` may be `host:port` (no scheme) or a full URL. Mirror the SDK: try as-is,
+/// otherwise prepend https/http depending on whether TLS is on.
+fn parse_target(host: &str, use_tls: bool) -> Result<Url> {
+    if let Ok(url) = Url::parse(host)
+        && url.has_host()
+    {
+        return Ok(url);
+    }
+    let scheme = if use_tls { "https" } else { "http" };
+    Url::parse(&format!("{scheme}://{host}")).with_context(|| format!("invalid host '{host}'"))
+}
+
+fn build_tls(tls: &Tls) -> Result<TlsOptions> {
+    let client_cert = fs::read(&tls.cert_path)
+        .with_context(|| format!("read cert {}", tls.cert_path.display()))?;
+
+    let client_private_key =
+        fs::read(&tls.key_path).with_context(|| format!("read key {}", tls.key_path.display()))?;
+
+    let server_root_ca_cert = tls
+        .ca_path
+        .as_ref()
+        .map(|p| fs::read(p).with_context(|| format!("read ca {}", p.display())))
+        .transpose()?;
+
+    Ok(TlsOptions {
+        server_root_ca_cert,
+        domain: None, // set if your cert's SNI differs from the host
+        client_tls_options: Some(ClientTlsOptions {
+            client_cert,
+            client_private_key,
+        }),
+    })
 }
 
 /// Fetch the *complete* event history for one workflow, following pagination.

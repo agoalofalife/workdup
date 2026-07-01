@@ -1,0 +1,18 @@
+[defaults]
+scan_interval    = "1h"                              # how often scan temporal cluster for new updates
+cleanup_interval = "1d"                              # how often clean outdated workflow in storage
+query            = "ExecutionStatus = 'Running'"     # query for get deduplication workflow
+
+[http]
+port = 8000
+
+[[namespaces]]
+name = "namespace-1"
+host = "host.cloud:7233"
+tls  = { cert_path = "${TEMPORAL_TLS_CLIENT_CERT_PATH}", key_path = "${TEMPORAL_TLS_CLIENT_KEY_PATH}" }
+
+[[namespaces]]
+name = "namespace-2"
+host = "host.cloud:7233"
+scan_interval = "10m"                               # we can redefine individual setting for namespace
+tls  = { cert_path = "${TEMPORAL_TLS_CLIENT_CERT_PATH}", key_path = "${TEMPORAL_TLS_CLIENT_KEY_PATH}" }

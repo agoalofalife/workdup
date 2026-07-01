@@ -1,32 +1,25 @@
 use anyhow::Result;
 use futures_util::StreamExt;
 use rusqlite::{Connection, OptionalExtension};
-use std::time::Duration;
 use temporalio_client::{Client, WorkflowListOptions};
 use tokio::time::{MissedTickBehavior, interval};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::{db, temporal, tokenizer};
+use crate::{config::ResolvedNamespace, db, temporal, tokenizer};
 
-pub async fn run(
-    namespace: String,
-    db_path: &str,
-    token: CancellationToken,
-    tick_interval: Duration,
-    query: String,
-) -> Result<()> {
-    let mut temp_client = temporal::connect(namespace.clone()).await?;
+pub async fn run(cfg: ResolvedNamespace, db_path: &str, token: CancellationToken) -> Result<()> {
+    let mut temp_client = temporal::connect(&cfg).await?;
     let db_conn = db::open(db_path)?;
 
-    let mut ticker = interval(tick_interval);
+    let mut ticker = interval(cfg.scan_interval);
     ticker.set_missed_tick_behavior(MissedTickBehavior::Delay); // will rescheduled when finished + timeout time
 
     loop {
         tokio::select! {
             _ = token.cancelled() => { info!("scanner stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = scan(&mut temp_client, &namespace, &db_conn, &token, &query).await {
+                if let Err(e) = scan(&mut temp_client, &cfg.name, &db_conn, &token, &cfg.query).await {
                     error!(error = %e, "scan tick failed"); // log, keep looping
                 }
             }

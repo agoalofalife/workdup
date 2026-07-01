@@ -1,7 +1,6 @@
-use crate::{db, temporal};
+use crate::{config::ResolvedNamespace, db, temporal};
 use anyhow::Result;
 use rusqlite::Connection as SqliteConnection;
-use std::time::Duration;
 use temporalio_client::{
     Client,
     grpc::WorkflowService,
@@ -15,22 +14,17 @@ use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
-pub async fn run(
-    namespace: String,
-    db_path: &str,
-    token: CancellationToken,
-    tick_interval: Duration,
-) -> Result<()> {
-    let mut client = temporal::connect(namespace.clone()).await?;
+pub async fn run(cfg: ResolvedNamespace, db_path: &str, token: CancellationToken) -> Result<()> {
+    let mut client = temporal::connect(&cfg).await?;
     let conn = db::open(db_path)?;
 
-    let mut ticker = interval(tick_interval);
+    let mut ticker = interval(cfg.cleanup_interval);
 
     loop {
         tokio::select! {
             _ = token.cancelled() => { info!("cleanup stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = run_once(&mut client, &namespace, &conn, &token).await {
+                if let Err(e) = run_once(&mut client, &cfg.name, &conn, &token).await {
                     error!(error = %e, "cleanup tick failed");
                 }
             }
