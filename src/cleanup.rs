@@ -119,7 +119,7 @@ fn delete_workflow(
     run_id: &str,
 ) -> Result<()> {
     conn.execute(
-        "DELETE FROM workflows WHERE namespace =?1 AND workflow_id = ?1 AND run_id = ?2",
+        "DELETE FROM workflows WHERE namespace =?1 AND workflow_id = ?2 AND run_id = ?3",
         (namespace, &workflow_id, &run_id),
     )?;
     Ok(())
