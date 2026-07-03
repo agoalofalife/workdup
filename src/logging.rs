@@ -1,4 +1,3 @@
-use tracing::Level;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 pub fn init_logging() {
@@ -6,13 +5,13 @@ pub fn init_logging() {
         .json()
         .with_current_span(true)
         .with_span_list(true)
+        .with_ansi(true)
         .with_writer(std::io::stdout);
 
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     tracing_subscriber::registry()
-        .with(
-            EnvFilter::from_default_env() // RUST_LOG controls overall verbosity
-                .add_directive(Level::INFO.into()),
-        )
+        .with(filter)
         .with(stdout_layer)
         .init();
 }

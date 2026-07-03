@@ -22,8 +22,8 @@ use tracing::{Instrument, error, info};
 fn main() -> Result<()> {
     let db_path: &'static str = "./data/workdup.db";
 
+    dotenvy::dotenv().ok(); // env first of all
     logging::init_logging();
-    dotenvy::dotenv().ok();
 
     db::init_schema(db_path)?;
 

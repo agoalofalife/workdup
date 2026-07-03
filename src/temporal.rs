@@ -5,6 +5,7 @@ use temporalio_client::{
 use temporalio_common::protos::temporal::api::common::v1::WorkflowExecution as WfExec;
 use temporalio_common::protos::temporal::api::history::v1::HistoryEvent;
 use temporalio_common::protos::temporal::api::workflowservice::v1::GetWorkflowExecutionHistoryRequest;
+use tracing::{debug, instrument};
 
 use crate::config::{ResolvedNamespace, Tls};
 use anyhow::{Context, Result};
@@ -68,6 +69,7 @@ fn build_tls(tls: &Tls) -> Result<TlsOptions> {
 }
 
 /// Fetch the *complete* event history for one workflow, following pagination.
+#[instrument(skip(client))]
 pub async fn fetch_history(
     client: &mut Client,
     namespace: &str,
@@ -76,8 +78,13 @@ pub async fn fetch_history(
 ) -> anyhow::Result<Vec<HistoryEvent>> {
     let mut events = Vec::new();
     let mut next_page_token = Vec::new();
+    let mut page_num = 1;
+
+    debug!("Start fetching history from workflow: {workflow_id}");
 
     loop {
+        debug!("Featch history of workflow on page:{page_num}");
+
         let resp = client
             .get_workflow_execution_history(
                 GetWorkflowExecutionHistoryRequest {
@@ -103,9 +110,11 @@ pub async fn fetch_history(
 
         // Empty token => no more pages.
         if resp.next_page_token.is_empty() {
+            debug!("len1 {}", events.len());
             break;
         }
         next_page_token = resp.next_page_token;
+        page_num += 1;
     }
 
     Ok(events)
