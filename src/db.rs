@@ -31,3 +31,18 @@ pub fn open(path: &str) -> Result<Connection> {
     conn.busy_timeout(Duration::from_secs(5))?;
     Ok(conn)
 }
+
+pub fn refresh_db_gauges(conn: &Connection, db_path: &str) -> anyhow::Result<()> {
+    let rows: i64 = conn.query_row("SELECT COUNT(*) FROM workflows", [], |r| r.get(0))?;
+
+    metrics::gauge!("workflow_rows").set(rows as f64);
+    let hashes: i64 = conn.query_row(
+        "SELECT COUNT(DISTINCT semantic_hash) FROM workflows",
+        [],
+        |r| r.get(0),
+    )?;
+    metrics::gauge!("db_distinct_hashes").set(hashes as f64);
+    let bytes = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
+    metrics::gauge!("db_file_bytes").set(bytes as f64);
+    Ok(())
+}

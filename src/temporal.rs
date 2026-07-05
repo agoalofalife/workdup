@@ -12,7 +12,13 @@ use anyhow::{Context, Result};
 use std::fs;
 use url::Url;
 
-pub async fn connect(ns: &ResolvedNamespace) -> Result<Client> {
+use temporalio_common::telemetry::{
+    PrometheusExporterOptions, TaskQueueLabelStrategy,
+    metrics::{NewAttributes, TemporalMeter},
+    start_prometheus_metric_exporter,
+};
+
+pub async fn connect(ns: &ResolvedNamespace, meter: TemporalMeter) -> Result<Client> {
     let use_tls = ns.tls.is_some() || ns.api_key.is_some();
     let target = parse_target(&ns.host, use_tls)?;
 
@@ -24,6 +30,7 @@ pub async fn connect(ns: &ResolvedNamespace) -> Result<Client> {
     let conn_opts = ConnectionOptions::new(target)
         .maybe_api_key(ns.api_key.clone())
         .maybe_tls_options(tls_options)
+        .metrics_meter(meter.clone())
         .build();
 
     let client_opts = ClientOptions::new(ns.name.clone()).build();
@@ -79,6 +86,7 @@ pub async fn fetch_history(
     let mut events = Vec::new();
     let mut next_page_token = Vec::new();
     let mut page_num = 1;
+    let start = std::time::Instant::now();
 
     debug!("Start fetching history from workflow: {workflow_id}");
 
@@ -104,7 +112,12 @@ pub async fn fetch_history(
             .await?
             .into_inner();
 
+        metrics::counter!("history_pages_fetched_total", "namespace" => namespace.to_string())
+            .increment(1);
+
         if let Some(history) = resp.history {
+            metrics::counter!("history_events_fetched_total", "namespace" => namespace.to_string())
+                .increment(history.events.len() as u64);
             events.extend(history.events);
         }
 
@@ -117,5 +130,24 @@ pub async fn fetch_history(
         page_num += 1;
     }
 
+    metrics::histogram!("history_fetch_duration_seconds", "namespace" => namespace.to_string())
+        .record(start.elapsed().as_secs_f64());
+
     Ok(events)
+}
+
+pub fn temporal_meter(addr: std::net::SocketAddr) -> anyhow::Result<TemporalMeter> {
+    let opts = PrometheusExporterOptions::builder()
+        .socket_addr(addr)
+        .counters_total_suffix(true)
+        .use_seconds_for_durations(true)
+        .build();
+
+    let started = start_prometheus_metric_exporter(opts)?;
+
+    Ok(TemporalMeter::new(
+        started.meter,
+        NewAttributes::new(vec![]),
+        TaskQueueLabelStrategy::UseNormal,
+    ))
 }

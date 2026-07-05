@@ -64,14 +64,17 @@ pub struct Tls {
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct Http {
-    #[serde(default = "default_port")]
+    #[serde(default = "default_http_port")]
     pub port: u16,
+    #[serde(default = "default_temporal_metric_port")]
+    pub temporal_metric_port: u16,
 }
 
 impl Default for Http {
     fn default() -> Self {
         Self {
-            port: default_port(),
+            port: default_http_port(),
+            temporal_metric_port: default_temporal_metric_port(),
         }
     }
 }
@@ -97,8 +100,12 @@ fn default_query() -> String {
     "ExecutionStatus = 'Running'".into()
 }
 
-fn default_port() -> u16 {
+fn default_http_port() -> u16 {
     8000
+}
+
+fn default_temporal_metric_port() -> u16 {
+    9000
 }
 
 pub fn load(config_path: &std::path::Path) -> Result<MainConfig> {

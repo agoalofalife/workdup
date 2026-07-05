@@ -5,6 +5,7 @@ query            = "ExecutionStatus = 'Running'"     # query for get deduplicati
 
 [http]
 port = 8000
+temporal_metrics_port = 9000
 
 [[namespaces]]
 name = "namespace-1"

@@ -2,14 +2,20 @@ use anyhow::Result;
 use futures_util::StreamExt;
 use rusqlite::{Connection, OptionalExtension};
 use temporalio_client::{Client, WorkflowListOptions};
+use temporalio_common::telemetry::metrics::TemporalMeter;
 use tokio::time::{MissedTickBehavior, interval};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::{config::ResolvedNamespace, db, temporal, tokenizer};
 
-pub async fn run(cfg: ResolvedNamespace, db_path: &str, token: CancellationToken) -> Result<()> {
-    let mut temp_client = temporal::connect(&cfg).await?;
+pub async fn run(
+    cfg: ResolvedNamespace,
+    db_path: &str,
+    token: CancellationToken,
+    meter: TemporalMeter,
+) -> Result<()> {
+    let mut temp_client = temporal::connect(&cfg, meter).await?;
     let db_conn = db::open(db_path)?;
 
     let mut ticker = interval(cfg.scan_interval);
@@ -19,8 +25,21 @@ pub async fn run(cfg: ResolvedNamespace, db_path: &str, token: CancellationToken
         tokio::select! {
             _ = token.cancelled() => { info!("scanner stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = scan(&mut temp_client, &cfg.name, &db_conn, &token, &cfg.query).await {
-                    error!(error = %e, "scan tick failed"); // log, keep looping
+                let start_time = std::time::Instant::now();
+                let result = scan(&mut temp_client, &cfg.name, &db_conn, &token, &cfg.query).await;
+
+                metrics::histogram!("scan_tick_duration_seconds", "namespace" => cfg.name.clone())
+                    .record(start_time.elapsed().as_secs_f64());
+
+                metrics::counter!(
+                    "scan_ticks_total",
+                    "namespace" => cfg.name.clone(),
+                    "result" => if result.is_ok() { "ok" } else { "error" },
+                )
+                .increment(1);
+
+                if let Err(e) = result {
+                    error!(error = %e, "scan tick failed");
                 }
             }
         }
@@ -43,6 +62,9 @@ async fn scan(
             info!("cancellation requested - stopping scanning at safe point");
             break;
         }
+        metrics::counter!("workflows_listed_total", "namespace" => namespace.to_string())
+            .increment(1);
+
         let wf = workflow?;
         let new_history_length = wf.history_length();
 
@@ -55,6 +77,8 @@ async fn scan(
             .optional()?;
 
         if prev_history_length == Some(new_history_length) {
+            metrics::counter!("workflows_skipped_unchanged_total", "namespace" => namespace.to_string())
+                 .increment(1);
             continue; // workflow was  unchanged
         }
 
@@ -68,6 +92,13 @@ async fn scan(
         {
             Ok(tokens) => tokens.into_iter().flatten().collect(),
             Err(e) => {
+                metrics::counter!(
+                    "workflows_dropped_total",
+                    "namespace" => namespace.to_string(),
+                    "reason" => e.to_string(),
+                )
+                .increment(1);
+
                 error!(
                     workflow_id = %wf.id(),
                     run_id = %wf.run_id(),
@@ -82,7 +113,12 @@ async fn scan(
 
         info!(workflow_id = %wf.id(), wf_type = %wf.workflow_type(), "scanned");
 
-        db_conn.execute(
+        metrics::counter!("workflows_processed_total", "namespace" => namespace.to_string())
+            .increment(1);
+
+        let start = std::time::Instant::now();
+
+        let result = db_conn.execute(
             "INSERT OR REPLACE INTO workflows
                       (namespace, workflow_id, run_id, workflow_type, history_length, semantic_hash)
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -94,9 +130,24 @@ async fn scan(
                 wf.history_length(),
                 &hash,
             ),
-        )?;
+        );
 
-        info!("workflow {} id updated in db", wf.id());
+        metrics::counter!("scan_workflows_updated_total", "namespace" => namespace.to_string())
+            .increment(1);
+
+        metrics::histogram!("db_write_duration_seconds", "op" => "upsert")
+            .record(start.elapsed().as_secs_f64());
+
+        metrics::counter!(
+            "db_writes_total",
+            "op" => "upsert",
+            "result" => if result.is_ok() { "ok" } else { "error" },
+        )
+        .increment(1);
+
+        let affected = result?;
+
+        info!(workflow_id = %wf.id(), affected, "workflow updated in db");
     }
     Ok(())
 }

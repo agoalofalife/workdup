@@ -11,6 +11,7 @@ mod tokenizer;
 use crate::{
     cli::{Cli, Cmd},
     config::validate,
+    temporal::temporal_meter,
 };
 use anyhow::Result;
 use clap::Parser;
@@ -40,45 +41,61 @@ fn main() -> Result<()> {
         Cmd::Run => {
             let token = CancellationToken::new();
 
+            // The SDK Prometheus exporter binds a listener and `tokio::spawn`s its HTTP
+            // server, so it must be created inside a runtime context — and that runtime
+            // must outlive the whole run to keep serving scrapes on :9464. The per-worker
+            // runtimes each fully occupy their own thread with a single `block_on`, so we
+            // host the exporter on this dedicated main runtime instead.
+            let rt = Builder::new_current_thread().enable_all().build()?;
+
+            // let metrics_addr: std::net::SocketAddr = "0.0.0.0:9464".parse()?; // add in cfg
+            let metrics_addr: std::net::SocketAddr =
+                format!("0.0.0.0:{}", cfg.http.temporal_metric_port).parse()?;
+
+            let meter = rt.block_on(async move { temporal_meter(metrics_addr) })?;
+
             let mut workers = vec![];
 
             for ns in &namespaces {
                 workers.push(spawn_worker("scanner", {
                     tracing::info_span!("scanner", %ns.name);
 
-                    let (ns, db_path, tok) = (ns.clone(), db_path, token.clone());
+                    let (ns, db_path, tok, meter) =
+                        (ns.clone(), db_path, token.clone(), meter.clone());
                     let span = tracing::info_span!("scanner", ns = %ns.name);
 
-                    move || scanner::run(ns, db_path, tok).instrument(span)
+                    move || scanner::run(ns, db_path, tok, meter).instrument(span)
                 }));
 
                 workers.push(spawn_worker("cleanup", {
-                    let (ns, db_path, tok) = (ns.clone(), db_path, token.clone());
+                    let (ns, db_path, tok, meter) =
+                        (ns.clone(), db_path, token.clone(), meter.clone());
                     let span = tracing::info_span!("scanner", ns = %ns.name);
 
-                    move || cleanup::run(ns, db_path, tok).instrument(span)
+                    move || cleanup::run(ns, db_path, tok, meter).instrument(span)
                 }));
             }
 
             let http = spawn_worker("http", {
-                let (path, token) = (db_path.to_string(), token.clone());
+                let (path, token, meter) = (db_path.to_string(), token.clone(), meter.clone());
 
                 move || {
                     http::run(
                         path,
                         format!("0.0.0.0:{}", cfg.http.port).to_string(),
                         token,
+                        namespaces,
+                        meter,
                     )
                 }
             });
 
-            Builder::new_current_thread()
-                .enable_all()
-                .build()?
-                .block_on(async {
-                    let _ = tokio::signal::ctrl_c().await;
-                    info!("shutdown requested");
-                });
+            // Drives the ctrl_c wait and, concurrently, the exporter's server task for
+            // the whole lifetime of the process.
+            rt.block_on(async {
+                let _ = tokio::signal::ctrl_c().await;
+                info!("shutdown requested");
+            });
 
             token.cancel();
 

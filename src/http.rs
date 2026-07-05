@@ -1,12 +1,17 @@
 use axum::{
     Json, Router,
+    extract::MatchedPath,
     extract::State,
+    http::Request,
     http::StatusCode,
+    middleware::Next,
     response::{IntoResponse, Response},
     routing::get,
 };
+use metrics_exporter_prometheus::PrometheusBuilder;
+use temporalio_common::telemetry::metrics::TemporalMeter;
 
-use crate::db;
+use crate::{config::ResolvedNamespace, db, temporal::connect};
 use axum::extract::Query;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
@@ -17,6 +22,13 @@ struct NsQuery {
     namespace: String,
 }
 
+#[derive(Clone)]
+struct AppState {
+    db_path: String,
+    namespaces: Vec<ResolvedNamespace>,
+    meter: TemporalMeter,
+}
+
 #[derive(Serialize)]
 pub struct UniqueWorkflow {
     pub workflow_id: String,
@@ -24,22 +36,43 @@ pub struct UniqueWorkflow {
     pub workflow_type: String,
 }
 
-fn router(db_path: String) -> Router {
+fn router(state: AppState) -> Router {
+    let handle = PrometheusBuilder::new()
+        .install_recorder()
+        .expect("failed to install recoreder");
+
     Router::new()
+        .route("/healthz", get(|| async { "ok" }))
+        .route("/readyz", get(readyz))
         .route("/unique-workflows", get(list_unique_workflows))
         .route("/stats", get(stats))
-        .with_state(db_path)
+        .route("/metrics", get(move || async move { handle.render() }))
+        .route_layer(axum::middleware::from_fn(track_metrcis))
+        .with_state(state)
 }
 
-pub async fn run(db_path: String, addr: String, token: CancellationToken) -> anyhow::Result<()> {
+pub async fn run(
+    db_path: String,
+    addr: String,
+    token: CancellationToken,
+    namespaces: Vec<ResolvedNamespace>,
+    meter: TemporalMeter,
+) -> anyhow::Result<()> {
     info!("binding http to {addr:?}");
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
     info!("http server listening on {addr}");
 
-    axum::serve(listener, router(db_path))
-        .with_graceful_shutdown(async move { token.cancelled().await })
-        .await?;
+    axum::serve(
+        listener,
+        router(AppState {
+            db_path,
+            namespaces,
+            meter,
+        }),
+    )
+    .with_graceful_shutdown(async move { token.cancelled().await })
+    .await?;
     Ok(())
 }
 
@@ -51,11 +84,11 @@ pub struct Stats {
 
 /// GET /stats?namespace=foo
 async fn stats(
-    State(db_path): State<String>,
+    State(state): State<AppState>,
     Query(q): Query<NsQuery>,
 ) -> Result<Json<Vec<Stats>>, AppError> {
     let rows = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Stats>> {
-        let conn = db::open(&db_path)?; // <-- a FRESH connection, every request
+        let conn = db::open(&state.db_path)?; // <-- a FRESH connection, every request
 
         let mut stmt = conn.prepare(
             "
@@ -82,13 +115,13 @@ async fn stats(
 }
 
 async fn list_unique_workflows(
-    State(db_path): State<String>,
+    State(state): State<AppState>,
     Query(q): Query<NsQuery>,
 ) -> Result<Json<Vec<UniqueWorkflow>>, AppError> {
     // rusqlite is blocking + !Sync, so open + query on tokio's blocking pool,
     // not on the async thread.
     let rows = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<UniqueWorkflow>> {
-        let conn = db::open(&db_path)?; // <-- a FRESH connection, every request
+        let conn = db::open(&state.db_path)?; // <-- a FRESH connection, every request
 
         let mut stmt = conn.prepare(
             "SELECT workflow_id, run_id, workflow_type
@@ -113,6 +146,30 @@ async fn list_unique_workflows(
     Ok(Json(rows))
 }
 
+async fn readyz(State(state): State<AppState>) -> Response {
+    match check_ready(state).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => (StatusCode::SERVICE_UNAVAILABLE, format!("not ready: {e}")).into_response(),
+    }
+}
+
+async fn check_ready(state: AppState) -> anyhow::Result<()> {
+    let db_path = state.db_path.clone();
+
+    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+        let conn = db::open(&db_path)?;
+        conn.query_row("SELECT 1", [], |_| Ok(()))?;
+        Ok(())
+    })
+    .await??;
+
+    for ns in &state.namespaces {
+        connect(ns, state.meter.clone()).await?;
+    }
+
+    Ok(())
+}
+
 pub struct AppError(anyhow::Error);
 
 impl IntoResponse for AppError {
@@ -129,4 +186,29 @@ impl<E: Into<anyhow::Error>> From<E> for AppError {
     fn from(e: E) -> Self {
         Self(e.into())
     }
+}
+
+async fn track_metrcis(req: Request<axum::body::Body>, next: Next) -> Response {
+    let method = req.method().clone();
+    let route = req
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|p| p.as_str().to_owned())
+        .unwrap_or_else(|| "unknown".to_owned());
+
+    let start = std::time::Instant::now();
+    let response = next.run(req).await;
+    let latency = start.elapsed().as_secs_f64();
+    let status = response.status().as_u16().to_string();
+
+    metrics::histogram!("http_request_duration_seconds", "route" => route.clone()).record(latency);
+    metrics::counter!(
+        "http_requests_total",
+        "route" => route,
+        "method" => method.to_string(),
+        "status" => status,
+    )
+    .increment(1);
+
+    response
 }

@@ -1,4 +1,8 @@
-use crate::{config::ResolvedNamespace, db, temporal};
+use crate::{
+    config::ResolvedNamespace,
+    db::{self, refresh_db_gauges},
+    temporal,
+};
 use anyhow::Result;
 use rusqlite::Connection as SqliteConnection;
 use temporalio_client::{
@@ -6,16 +10,24 @@ use temporalio_client::{
     grpc::WorkflowService,
     tonic::{Code, IntoRequest, Status},
 };
-use temporalio_common::protos::temporal::api::{
-    common::v1::WorkflowExecution as WfExec, enums::v1::WorkflowExecutionStatus,
-    workflowservice::v1::DescribeWorkflowExecutionRequest,
+use temporalio_common::{
+    protos::temporal::api::{
+        common::v1::WorkflowExecution as WfExec, enums::v1::WorkflowExecutionStatus,
+        workflowservice::v1::DescribeWorkflowExecutionRequest,
+    },
+    telemetry::metrics::TemporalMeter,
 };
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
-pub async fn run(cfg: ResolvedNamespace, db_path: &str, token: CancellationToken) -> Result<()> {
-    let mut client = temporal::connect(&cfg).await?;
+pub async fn run(
+    cfg: ResolvedNamespace,
+    db_path: &str,
+    token: CancellationToken,
+    meter: TemporalMeter,
+) -> Result<()> {
+    let mut client = temporal::connect(&cfg, meter).await?;
     let conn = db::open(db_path)?;
 
     let mut ticker = interval(cfg.cleanup_interval);
@@ -24,9 +36,25 @@ pub async fn run(cfg: ResolvedNamespace, db_path: &str, token: CancellationToken
         tokio::select! {
             _ = token.cancelled() => { info!("cleanup stopping"); break; }
             _ = ticker.tick() => {
-                if let Err(e) = run_once(&mut client, &cfg.name, &conn, &token).await {
+                let start = std::time::Instant::now();
+
+                let result = run_once(&mut client, &cfg.name, &conn, &token).await;
+
+                metrics::histogram!("cleanup_duration_seconds", "namespace" => cfg.name.clone())
+                                    .record(start.elapsed().as_secs_f64());
+
+                metrics::counter!(
+                    "cleanup_runs_total",
+                    "namespace" => cfg.name.clone(),
+                    "result" => if result.is_ok() { "ok" } else { "error" },
+                ).increment(1);
+
+                refresh_db_gauges(&conn, db_path)?;
+
+                if let Err(e) = result {
                     error!(error = %e, "cleanup tick failed");
                 }
+
             }
         }
     }
@@ -117,10 +145,12 @@ fn delete_workflow(
     namespace: &str,
     workflow_id: &str,
     run_id: &str,
-) -> Result<()> {
-    conn.execute(
+) -> Result<usize> {
+    let deleted = conn.execute(
         "DELETE FROM workflows WHERE namespace =?1 AND workflow_id = ?2 AND run_id = ?3",
         (namespace, &workflow_id, &run_id),
     )?;
-    Ok(())
+    metrics::counter!("cleanup_rows_deleted_total", "namespace" => namespace.to_string())
+        .increment(deleted as u64);
+    Ok(deleted)
 }
