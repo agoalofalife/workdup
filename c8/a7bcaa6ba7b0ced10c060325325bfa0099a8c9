@@ -1,0 +1,24 @@
+src/main.rs
+  s_7491a15da00b61::t_e384db906435c1 93-97
+  s_7491a15da00b61::t_3b1e8d630a2d50 44-50,55-56
+  s_7491a15da00b61::t_644cd66d8c3c65 51-54
+  s_7491a15da00b61::t_fcc362cea52d4f 98
+wd.example.toml
+  s_7491a15da00b61::t_f8d042e6c22126 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c8a7bcaa6ba7b0ced10c060325325bfa0099a8c9",
+  "prompts": {},
+  "sessions": {
+    "s_7491a15da00b61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "46e219a2-63c5-4284-8d47-f56890e642a8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
