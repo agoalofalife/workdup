@@ -41,12 +41,24 @@ fn router(state: AppState) -> Router {
         .install_recorder()
         .expect("failed to install recoreder");
 
+    let collector = std::sync::Arc::new(metrics_process::Collector::default());
+    collector.describe();
+
     Router::new()
         .route("/healthz", get(|| async { "ok" }))
         .route("/readyz", get(readyz))
         .route("/unique-workflows", get(list_unique_workflows))
         .route("/stats", get(stats))
-        .route("/metrics", get(move || async move { handle.render() }))
+        .route(
+            "/metrics",
+            get({
+                let collector = collector.clone();
+                move || async move {
+                    collector.collect(); // refresh process_* metric before rendering
+                    handle.render()
+                }
+            }),
+        )
         .route_layer(axum::middleware::from_fn(track_metrcis))
         .with_state(state)
 }

@@ -123,7 +123,6 @@ pub async fn fetch_history(
 
         // Empty token => no more pages.
         if resp.next_page_token.is_empty() {
-            debug!("len1 {}", events.len());
             break;
         }
         next_page_token = resp.next_page_token;
