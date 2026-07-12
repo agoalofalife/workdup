@@ -1,0 +1,77 @@
+# workdup local observability stack: the service + Prometheus + Grafana.
+#
+#   docker compose up --build
+#
+# Grafana:    http://localhost:3000  (anonymous admin, dashboard auto-loaded)
+# Prometheus: http://localhost:9090
+# App API:    http://localhost:8000  (/metrics, /healthz, /stats, ...)
+# App metrics (Temporal gRPC): http://localhost:9000/metrics
+
+services:
+  workdup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: workdup:local
+    container_name: workdup
+    # .env supplies RUST_LOG and any secrets. TLS cert paths are overridden
+    # below to point at the in-container mount, so whatever host paths .env
+    # holds don't leak into the container.
+    env_file:
+      - .env
+    environment:
+      TEMPORAL_TLS_CLIENT_CERT_PATH: /app/certs/cert.pem
+      TEMPORAL_TLS_CLIENT_KEY_PATH: /app/certs/key.pem
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      # config: wd.toml is mounted as the default config path the binary reads
+      - ./wd.toml:/app/workdup.toml:ro
+      # TLS client certs for Temporal Cloud — swap these for your real certs
+      - ./cert.pem:/app/certs/cert.pem:ro
+      - ./key.pem:/app/certs/key.pem:ro
+      # persist the SQLite store across restarts
+      - workdup-data:/app/data
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    depends_on:
+      - workdup
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # convenient for local debugging — anyone hitting :3000 lands as admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  workdup-data:
+  prometheus-data:
+  grafana-data:

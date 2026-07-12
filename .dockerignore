@@ -1,0 +1,9 @@
+/target
+/data
+/spec
+.git
+.env
+.env.*
+!.env.example
+*.pem
+docker

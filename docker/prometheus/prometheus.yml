@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Application metrics (scanner, db, cleanup, http RED, process) rendered by
+  # metrics-exporter-prometheus on the axum server.
+  - job_name: workdup-app
+    static_configs:
+      - targets: ["workdup:8000"]
+        labels:
+          source: application
+
+  # Temporal SDK gRPC metrics (request*, long_request*) exported on their own
+  # port by start_prometheus_metric_exporter.
+  - job_name: workdup-temporal-grpc
+    static_configs:
+      - targets: ["workdup:9000"]
+        labels:
+          source: temporal-sdk
