@@ -90,3 +90,18 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
   ```promql
   history_fetch_duration_seconds{namespace=~"$namespace", quantile="0.99"} > 10   # tail fetch > 10s → big histories / Temporal slow
   ```
+
+### Panel: History pages & events fetched (per 1h)
+
+> ⚠️ **Experimental.** This panel is a tuning aid for `maximum_page_size`, which is currently hard-coded to `0` (server default) in `temporal.rs`. The plan is to promote it to a per-namespace config option (`[[namespaces]].max_page_size` in `workdup.toml`) so it can be set without a rebuild — until then, the panel only *informs* the value; it can't be applied from config yet.
+
+- **What it tells you:** the *volume* behind History fetch duration — how much history the scanner pulls and how many round-trips it takes. `events` = data pulled; `pages` = gRPC calls to `GetWorkflowExecutionHistory` (one per page).
+- **Queries (per 1h, `increase` — not per-second, because fetches are bursty):**
+  - `sum by (namespace)(increase(history_events_fetched_total{namespace=~"$namespace"}[1h]))` — events/hour
+  - `sum by (namespace)(increase(history_pages_fetched_total{namespace=~"$namespace"}[1h]))` — pages/hour
+  - `…events… / …pages…` — **events per page** (right Y-axis) = the effective page size the server is handing you.
+- **How to read it — and when to tune `maximum_page_size`:**
+  - **Low `events/page` + many `pages`** → you're making lots of round-trips for little data each. Raising `maximum_page_size` pulls more events per request → fewer pages → lower fetch latency (watch *History fetch duration* p99 drop). This is the lever.
+  - **`events/page` already near the server cap** → pages aren't the bottleneck; the history is just large. Bumping the page size won't help much.
+  - Rule of thumb: **measure here first, then set a value** (e.g. 500–1000) and confirm pages/p99 fall — don't guess. Note the server caps page size, and larger pages mean larger gRPC messages.
+- **Alert:** none — this is a diagnostic/tuning panel, not an SLO.

@@ -441,8 +441,8 @@
     },
     {
       "type": "timeseries",
-      "title": "History pages & events fetched",
-      "description": "Sanity-check pagination assumptions & history volume.",
+      "title": "History pages & events fetched (per 1h)",
+      "description": "History-fetch volume — the 'why' behind History fetch duration. events = data pulled, pages = gRPC round-trips. 'events/page' (right axis) is the effective server page size: low ratio + many pages = lots of round-trips → consider raising maximum_page_size in temporal.rs to cut pages and fetch latency. Uses increase() over 1h (not per-second rate) since fetches are bursty every scan_interval.",
       "id": 7,
       "datasource": {
         "type": "prometheus",
@@ -461,8 +461,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(history_pages_fetched_total{namespace=~\"$namespace\"}[5m]))",
-          "legendFormat": "pages {{namespace}}",
+          "expr": "sum by (namespace)(increase(history_events_fetched_total{namespace=~\"$namespace\"}[1h]))",
+          "legendFormat": "events {{namespace}}",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -473,25 +473,48 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(history_events_fetched_total{namespace=~\"$namespace\"}[5m]))",
-          "legendFormat": "events {{namespace}}",
+          "expr": "sum by (namespace)(increase(history_pages_fetched_total{namespace=~\"$namespace\"}[1h]))",
+          "legendFormat": "pages {{namespace}}",
           "range": true,
           "instant": false,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (namespace)(increase(history_events_fetched_total{namespace=~\"$namespace\"}[1h])) / sum by (namespace)(increase(history_pages_fetched_total{namespace=~\"$namespace\"}[1h]))",
+          "legendFormat": "events/page {{namespace}}",
+          "range": true,
+          "instant": false,
+          "refId": "C"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "C" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "short" },
+              { "id": "custom.axisLabel", "value": "events / page" },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
