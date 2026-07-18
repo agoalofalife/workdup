@@ -57,6 +57,9 @@ async fn scan(
     info!("Start scannig");
     let mut stream = temp_client.list_workflows(query, WorkflowListOptions::builder().build());
 
+    // per-tick counters → emitted as gauges at the end (exact per-scan totals, no window aliasing)
+    let (mut listed, mut processed, mut updated, mut skipped) = (0u64, 0u64, 0u64, 0u64);
+
     while let Some(workflow) = stream.next().await {
         if token.is_cancelled() {
             info!("cancellation requested - stopping scanning at safe point");
@@ -64,6 +67,7 @@ async fn scan(
         }
         metrics::counter!("workflows_listed_total", "namespace" => namespace.to_string())
             .increment(1);
+        listed += 1;
 
         let wf = workflow?;
         let new_history_length = wf.history_length();
@@ -79,6 +83,7 @@ async fn scan(
         if prev_history_length == Some(new_history_length) {
             metrics::counter!("workflows_skipped_unchanged_total", "namespace" => namespace.to_string())
                  .increment(1);
+            skipped += 1;
             continue; // workflow was  unchanged
         }
 
@@ -115,6 +120,7 @@ async fn scan(
 
         metrics::counter!("workflows_processed_total", "namespace" => namespace.to_string())
             .increment(1);
+        processed += 1;
 
         let start = std::time::Instant::now();
 
@@ -134,6 +140,7 @@ async fn scan(
 
         metrics::counter!("scan_workflows_updated_total", "namespace" => namespace.to_string())
             .increment(1);
+        updated += 1;
 
         metrics::histogram!("db_write_duration_seconds", "op" => "upsert")
             .record(start.elapsed().as_secs_f64());
@@ -149,5 +156,12 @@ async fn scan(
 
         info!(workflow_id = %wf.id(), affected, "workflow updated in db");
     }
+
+    // per-tick throughput: exact totals for THIS scan cycle (gauge = last tick's value, held until next tick)
+    metrics::gauge!("scan_workflows_listed", "namespace" => namespace.to_string()).set(listed as f64);
+    metrics::gauge!("scan_workflows_processed", "namespace" => namespace.to_string()).set(processed as f64);
+    metrics::gauge!("scan_workflows_updated", "namespace" => namespace.to_string()).set(updated as f64);
+    metrics::gauge!("scan_workflows_skipped", "namespace" => namespace.to_string()).set(skipped as f64);
+
     Ok(())
 }

@@ -208,8 +208,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Workflow throughput",
-      "description": "",
+      "title": "Workflow throughput (per tick)",
+      "description": "Work done by each scan cycle: listed = scanned via Visibility; processed = new or history-changed; updated = written to DB; skipped = unchanged. These are gauges set at the end of each tick (exact per-scan totals, not per-second rate) — one point per tick, held until the next. listed ≈ processed + skipped; the processed/listed ratio shows how much churn each scan finds.",
       "id": 4,
       "datasource": {
         "type": "prometheus",
@@ -228,7 +228,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(workflows_listed_total{namespace=~\"$namespace\"}[5m]))",
+          "expr": "scan_workflows_listed{namespace=~\"$namespace\"}",
           "legendFormat": "listed {{namespace}}",
           "range": true,
           "instant": false,
@@ -240,7 +240,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(workflows_processed_total{namespace=~\"$namespace\"}[5m]))",
+          "expr": "scan_workflows_processed{namespace=~\"$namespace\"}",
           "legendFormat": "processed {{namespace}}",
           "range": true,
           "instant": false,
@@ -252,7 +252,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(scan_workflows_updated_total{namespace=~\"$namespace\"}[5m]))",
+          "expr": "scan_workflows_updated{namespace=~\"$namespace\"}",
           "legendFormat": "updated {{namespace}}",
           "range": true,
           "instant": false,
@@ -264,7 +264,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(workflows_skipped_unchanged_total{namespace=~\"$namespace\"}[5m]))",
+          "expr": "scan_workflows_skipped{namespace=~\"$namespace\"}",
           "legendFormat": "skipped {{namespace}}",
           "range": true,
           "instant": false,
@@ -273,12 +273,13 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "wps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },

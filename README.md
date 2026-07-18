@@ -40,3 +40,19 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
   ```promql
   increase(scan_ticks_total{result="error"}[1h]) > 0   # any failed scan in the last hour
   ```
+
+### Panel: Workflow throughput (per tick)
+
+- **Metrics:** `scan_workflows_listed` / `scan_workflows_processed` / `scan_workflows_updated` / `scan_workflows_skipped` — **gauges**, labeled `namespace`, set once at the end of each `scan()` in `scanner.rs` with that tick's totals. The matching `workflows_*_total` **counters** are still emitted for lifetime totals.
+  - `listed` — workflows scanned via the Visibility API this tick
+  - `processed` — new or history-changed (went through fetch → tokenize → hash)
+  - `updated` — actually written to the DB (upsert)
+  - `skipped` — unchanged (`history_length` matched), no history fetched
+- **Queries:** the four gauges directly, e.g. `scan_workflows_listed{namespace=~"$namespace"}` (one line per metric per namespace).
+- **How to read it:** these are **per-tick** counts, not per-second throughput — a gauge holds the last cycle's total, so the line is stepped (one point per tick) and stays flat between ticks. `listed ≈ processed + skipped`, and `updated ⊆ processed`; the **processed/listed ratio** shows how much churn each scan finds (mostly `skipped` = little changed since last tick = healthy steady state). Rising `processed`/`updated` means a burst of new or changed workflows. Per-tick gauges are used instead of `increase()` over a window because scan ticks are irregular (`MissedTickBehavior::Delay`), so any fixed window would alias or split a tick's counts — the gauge captures each cycle exactly.
+- **Lifetime totals (optional stat):** use the counters over the dashboard range, e.g. `increase(workflows_processed_total{namespace=~"$namespace"}[$__range])`.
+- **Alert:** mostly a diagnostic panel; a reasonable signal is "scans stopped finding anything" —
+- **Tuning `scan_interval` with this panel:** the `processed` vs `skipped` split is a direct measure of *how often workflows actually change between ticks*, which is exactly the input for choosing `scan_interval` in `workdup.toml`. Read it like this:
+  - Almost every tick is `skipped` with little/no `processed` → you're scanning **more often than workflows change**; raise `scan_interval` to cut load on Temporal with no real loss of freshness.
+  - `processed`/`updated` is a large share of `listed` on most ticks → workflows change **faster than you scan**; lower `scan_interval` for a fresher deduped set (at the cost of more Visibility/history load).
+  - Target a steady state that's mostly `skipped` with a small, steady `processed` trickle — that means the interval matches the real change rate. Re-check after load changes, since the right interval can differ per namespace (and `scan_interval` is per-namespace overridable).
