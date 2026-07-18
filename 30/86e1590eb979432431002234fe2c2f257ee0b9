@@ -1,0 +1,21 @@
+README.md
+  s_88268531c36664::t_0336ce5a1dee8b 93-107
+docker/grafana/dashboards/workdup.json
+  s_88268531c36664::t_ac0c892bce5889 444-445,464-465,476-477,481-492,497,500,502-503,507-517
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3086e1590eb979432431002234fe2c2f257ee0b9",
+  "prompts": {},
+  "sessions": {
+    "s_88268531c36664": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c90eb-9a71-43da-b8f4-ff1caf0789f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
