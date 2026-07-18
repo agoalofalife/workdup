@@ -1,0 +1,19 @@
+README.md
+  s_88268531c36664::t_3c6673214d14e2 78-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "4fbebd6e69f367adabac8c1a4dd4fba54ce97848",
+  "prompts": {},
+  "sessions": {
+    "s_88268531c36664": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c90eb-9a71-43da-b8f4-ff1caf0789f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
