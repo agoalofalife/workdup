@@ -303,7 +303,7 @@
     {
       "type": "timeseries",
       "title": "Workflows dropped (tokenization errors)",
-      "description": "Alert if > 0 \u2014 new SDK/event variant silently losing workflows.",
+      "description": "Count of workflows skipped because tokenization failed (a new/unhandled event variant would silently lose a workflow). Expected to be flat 0. Any bump = investigate the scanner logs (workflow_id, run_id, error) \u2014 the detailed reason lives in logs, not in a metric label (that would blow up cardinality). 'or vector(0)' keeps a green zero line so an empty panel means 'healthy', not 'no data'.",
       "id": 5,
       "datasource": {
         "type": "prometheus",
@@ -322,8 +322,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace,reason)(rate(workflows_dropped_total{namespace=~\"$namespace\"}[15m]))",
-          "legendFormat": "{{namespace}} {{reason}}",
+          "expr": "sum(increase(workflows_dropped_total{namespace=~\"$namespace\"}[1h])) or vector(0)",
+          "legendFormat": "dropped",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -331,12 +331,13 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "wps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },

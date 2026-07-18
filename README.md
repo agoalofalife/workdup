@@ -56,3 +56,22 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
   - Almost every tick is `skipped` with little/no `processed` → you're scanning **more often than workflows change**; raise `scan_interval` to cut load on Temporal with no real loss of freshness.
   - `processed`/`updated` is a large share of `listed` on most ticks → workflows change **faster than you scan**; lower `scan_interval` for a fresher deduped set (at the cost of more Visibility/history load).
   - Target a steady state that's mostly `skipped` with a small, steady `processed` trickle — that means the interval matches the real change rate. Re-check after load changes, since the right interval can differ per namespace (and `scan_interval` is per-namespace overridable).
+
+### Panel: Workflows dropped (tokenization errors)
+
+- **What it tells you:** how many workflows the scanner had to **skip** because it couldn't turn their history into a semantic hash — it hit a Temporal event type the tokenizer doesn't handle yet. A skipped workflow is **missing from the deduplicated set**, so your replay coverage has a blind spot. You want this at a **flat `0`**.
+- **Query:** `sum(increase(workflows_dropped_total{namespace=~"$namespace"}[1h])) or vector(0)` — number of workflows dropped in the last hour. The `or vector(0)` keeps a green `0` line, so an empty panel means "healthy," not "metric missing."
+- **How to read it:** `0` and flat → every workflow hashed cleanly, nothing to do. Any point above `0` → one or more workflows were dropped that hour, almost always because a new SDK/event variant showed up that the tokenizer doesn't cover.
+- **What to do when it goes above 0:** the *reason* is deliberately **not** on the dashboard (putting it in a metric label would explode cardinality). Instead, open the **scanner logs** — every drop logs the full detail:
+
+  ```
+  level=error  msg="skipping workflow because semantic hash would be incomplete"
+  workflow_id=... run_id=... error="Undefined type while trying to make hash string: <EventType>"
+  ```
+
+  Search the logs for `skipping workflow because semantic hash` (or filter by `workflow_id` / `run_id`). The `error=` field names the unhandled event type — add a rule for it in `tokenizer.rs` (see `spec/concept.md` §4.3.1), and the drops stop.
+- **Alert:**
+
+  ```promql
+  increase(workflows_dropped_total{namespace=~"$namespace"}[1h]) > 0   # a workflow fell out of the dedup set → check scanner logs
+  ```

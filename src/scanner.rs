@@ -97,12 +97,8 @@ async fn scan(
         {
             Ok(tokens) => tokens.into_iter().flatten().collect(),
             Err(e) => {
-                metrics::counter!(
-                    "workflows_dropped_total",
-                    "namespace" => namespace.to_string(),
-                    "reason" => e.to_string(),
-                )
-                .increment(1);
+                metrics::counter!("workflows_dropped_total", "namespace" => namespace.to_string())
+                    .increment(1);
 
                 error!(
                     workflow_id = %wf.id(),
@@ -158,10 +154,14 @@ async fn scan(
     }
 
     // per-tick throughput: exact totals for THIS scan cycle (gauge = last tick's value, held until next tick)
-    metrics::gauge!("scan_workflows_listed", "namespace" => namespace.to_string()).set(listed as f64);
-    metrics::gauge!("scan_workflows_processed", "namespace" => namespace.to_string()).set(processed as f64);
-    metrics::gauge!("scan_workflows_updated", "namespace" => namespace.to_string()).set(updated as f64);
-    metrics::gauge!("scan_workflows_skipped", "namespace" => namespace.to_string()).set(skipped as f64);
+    metrics::gauge!("scan_workflows_listed", "namespace" => namespace.to_string())
+        .set(listed as f64);
+    metrics::gauge!("scan_workflows_processed", "namespace" => namespace.to_string())
+        .set(processed as f64);
+    metrics::gauge!("scan_workflows_updated", "namespace" => namespace.to_string())
+        .set(updated as f64);
+    metrics::gauge!("scan_workflows_skipped", "namespace" => namespace.to_string())
+        .set(skipped as f64);
 
     Ok(())
 }
