@@ -75,3 +75,18 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
   ```promql
   increase(workflows_dropped_total{namespace=~"$namespace"}[1h]) > 0   # a workflow fell out of the dedup set → check scanner logs
   ```
+
+### Panel: History fetch duration (p50/p90/p99)
+
+- **What it tells you:** how long it takes to download **one** workflow's history from Temporal. It's recorded once per *processed* workflow (new/changed), so a busy tick produces many samples — a real latency distribution. This is why **percentiles fit here**, unlike the once-per-tick gauges above.
+- **Query:** `history_fetch_duration_seconds{namespace=~"$namespace", quantile="0.5"}` (and `0.9`, `0.99`) — read directly; this metric is exported as a summary, so there's no `rate` / `histogram_quantile`.
+- **How to read it:**
+  - **p50** — a typical fetch (small history, single page).
+  - **p90** — most fetches.
+  - **p99 — the tail: big histories** (lots of events → many pages, see the *History pages & events* panel) or Temporal being slow. This is the line to watch: a few huge workflows dominate the whole scan, so **p99 here is usually the explanation for a spike in *Scan tick duration*.**
+- **Caveats:** fetches are bursty — they all happen inside the tick, then it's quiet for `scan_interval` — so each percentile really means "over the last tick's fetches." Sample size swings too: in steady state only a few workflows are processed, so p99 is noisy (≈ the max of a handful); during the first scan / backfill (hundreds+) the percentiles are solid. And because it's a summary, the values are **per-namespace and can't be aggregated** across namespaces or replicas.
+- **Alert:** latency percentiles rarely deserve a hard alert on their own — watch p99 next to *Scan tick duration*. If you want one:
+
+  ```promql
+  history_fetch_duration_seconds{namespace=~"$namespace", quantile="0.99"} > 10   # tail fetch > 10s → big histories / Temporal slow
+  ```
