@@ -1,0 +1,29 @@
+README.md
+  s_88268531c36664::t_c75892cb939e27 55-58
+  s_88268531c36664::t_bf8a5c62008118 43-54
+src/scanner.rs
+  s_88268531c36664::t_fc5c91d96fafe7 123
+  s_88268531c36664::t_ad42e635ea9fbf 143
+  s_88268531c36664::t_35c17fd11910a0 86
+  s_88268531c36664::t_20bb90bdf44f89 159-165
+  s_88268531c36664::t_09f9e93052c18d 60-62
+  s_88268531c36664::t_0be04c5b470940 70
+docker/grafana/dashboards/workdup.json
+  s_88268531c36664::t_43145e38602a2b 211-212,231,243,255,267,276,279,281-282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "1dfa05abca07ed34e25e7fdce64825dd0e34e5a1",
+  "prompts": {},
+  "sessions": {
+    "s_88268531c36664": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c90eb-9a71-43da-b8f4-ff1caf0789f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
