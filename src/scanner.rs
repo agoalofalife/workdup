@@ -28,8 +28,8 @@ pub async fn run(
                 let start_time = std::time::Instant::now();
                 let result = scan(&mut temp_client, &cfg.name, &db_conn, &token, &cfg.query).await;
 
-                metrics::histogram!("scan_tick_duration_seconds", "namespace" => cfg.name.clone())
-                    .record(start_time.elapsed().as_secs_f64());
+                metrics::gauge!("scan_tick_duration_seconds", "namespace" => cfg.name.clone())
+                    .set(start_time.elapsed().as_secs_f64());
 
                 metrics::counter!(
                     "scan_ticks_total",

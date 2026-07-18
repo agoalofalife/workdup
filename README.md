@@ -1,0 +1,30 @@
+# workdup
+
+Temporal workflow history deduplication for replay-test optimization — maintains a live, deduplicated set of "unique" workflows (by semantic hash) so CI/QA replays a minimal covering set instead of every history.
+
+## Observability dashboard
+
+A Grafana dashboard is provisioned from [`docker/grafana/dashboards/workdup.json`](docker/grafana/dashboards/workdup.json) (title **"workdup — Observability"**). 
+
+App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC metrics on `[http].temporal_metrics_port`.
+
+### Dashboard variables
+
+| Variable | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `$namespace` | query (multi-select) | `All` | Filters every panel by Temporal namespace. Populated from `label_values(scan_ticks_total, namespace)`. |
+| `$scan_interval` | textbox | `600` | Your `scan_interval` **in seconds** (10m = `600`, 30m = `1800`, 60m = `3600`). Drives the red "falling-behind" threshold line on the *Scan tick duration* panel — set it to match your config (`workdup.toml`). |
+
+### Panel: Scan tick duration (last, per namespace)
+
+- **Metric:** `scan_tick_duration_seconds` — a **gauge**, labeled `namespace`, emitted in `scanner.rs` once per tick. It is the wall-clock time of the whole `scan()` call: list preferable workflows via the Visibility API → for each, compare `history_length`, fetch history, tokenize, hash, and upsert.
+- **Queries:** `scan_tick_duration_seconds{namespace=~"$namespace"}` (one line per namespace) plus `vector($scan_interval)` rendered as the red dashed threshold line.
+- **How to read it:** it's a gauge, so it shows the duration of the **most recent** scan and *holds that value* until the next tick — the line is **flat/stepped, not spiky**, and it does **not** drop to `0` between ticks. A flat `15s` means "the last scan took 15s." Compare it against the `$scan_interval` threshold: if the line approaches or crosses it, the scan isn't keeping up. (The scanner uses `MissedTickBehavior::Delay`, so an overrun silently *delays* the next scan and stretches data freshness — hence watching this against the interval is the primary "are we keeping up?")
+
+- **Alert:**
+
+  ```promql
+  scan_tick_duration_seconds > 600   # last tick exceeded the (10m) interval → falling behind
+  ```
+
+  Match the number to your `scan_interval` (or reuse the same value you put in `$scan_interval`).

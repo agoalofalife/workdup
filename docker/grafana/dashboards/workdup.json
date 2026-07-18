@@ -38,6 +38,17 @@
           "value": "$__all"
         },
         "label": "namespace"
+      },
+      {
+        "name": "scan_interval",
+        "type": "textbox",
+        "query": "600",
+        "current": {
+          "text": "600",
+          "value": "600"
+        },
+        "label": "scan_interval (s)",
+        "description": "Your scan_interval in seconds (10m=600, 30m=1800, 60m=3600). Drives the 'falling behind' threshold line on the Scan tick duration panel."
       }
     ]
   },
@@ -57,8 +68,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Scan tick duration (p50/p90/p99)",
-      "description": "Main 'are we keeping up?' signal \u2014 compare against scan_interval.",
+      "title": "Scan tick duration (last, per namespace)",
+      "description": "Wall-clock time of the last scan tick (gauge). One point per tick \u2014 the scan runs every scan_interval (10\u201360m), so percentiles are meaningless at this frequency; you read each tick directly. Main 'are we keeping up?' signal: compare against scan_interval (threshold line). If it approaches/crosses the interval, the scan is falling behind.",
       "id": 2,
       "datasource": {
         "type": "prometheus",
@@ -77,8 +88,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "scan_tick_duration_seconds{namespace=~\"$namespace\",quantile=\"0.5\"}",
-          "legendFormat": "p50 {{namespace}}",
+          "expr": "scan_tick_duration_seconds{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}}",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -89,23 +100,11 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "scan_tick_duration_seconds{namespace=~\"$namespace\",quantile=\"0.9\"}",
-          "legendFormat": "p90 {{namespace}}",
+          "expr": "vector($scan_interval)",
+          "legendFormat": "scan_interval (falling-behind threshold)",
           "range": true,
           "instant": false,
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "scan_tick_duration_seconds{namespace=~\"$namespace\",quantile=\"0.99\"}",
-          "legendFormat": "p99 {{namespace}}",
-          "range": true,
-          "instant": false,
-          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -113,13 +112,26 @@
           "unit": "s",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 6,
             "lineWidth": 1
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byFrameRefID", "options": "B" },
+            "properties": [
+              { "id": "custom.drawStyle", "value": "line" },
+              { "id": "custom.lineInterpolation", "value": "linear" },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.showPoints", "value": "never" },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
