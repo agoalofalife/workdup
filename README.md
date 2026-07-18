@@ -28,3 +28,15 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
   ```
 
   Match the number to your `scan_interval` (or reuse the same value you put in `$scan_interval`).
+
+### Panel: Scan ticks (ok vs error, per 1h)
+
+- **Metric:** `scan_ticks_total` — a **counter**, labeled `namespace` and `result` (`ok`/`error`), incremented once per tick in `scanner.rs`.
+- **Query:** `sum by (namespace, result) (increase(scan_ticks_total{namespace=~"$namespace"}[1h]))` — number of scans in the last hour, split by result.
+- **How to read it:** counters are monotonic (and reset to 0 on restart), so they're never plotted raw — `increase()` turns "total forever" into "how many happened in the window." The `error` line is the signal: any nonzero value means a scan tick failed (errors + Temporal `RESOURCE_EXHAUSTED` = throttling); the `ok` line just confirms ticks are still happening. 
+
+**Alert:**
+
+  ```promql
+  increase(scan_ticks_total{result="error"}[1h]) > 0   # any failed scan in the last hour
+  ```

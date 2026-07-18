@@ -150,8 +150,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Scan ticks rate (ok vs error)",
-      "description": "Errors + Temporal RESOURCE_EXHAUSTED = throttling.",
+      "title": "Scan ticks (ok vs error, per 1h)",
+      "description": "Count of scan ticks over a 1h window, split by result. Scans run every scan_interval (10-60m), so this uses increase() over a window >= the interval instead of per-second rate. A nonzero 'error' line is the signal (errors + Temporal RESOURCE_EXHAUSTED = throttling). Widen the window to 6h if scan_interval=60m.",
       "id": 3,
       "datasource": {
         "type": "prometheus",
@@ -170,7 +170,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace,result) (rate(scan_ticks_total{namespace=~\"$namespace\"}[5m]))",
+          "expr": "sum by (namespace,result) (increase(scan_ticks_total{namespace=~\"$namespace\"}[1h]))",
           "legendFormat": "{{namespace}} {{result}}",
           "range": true,
           "instant": false,
@@ -179,12 +179,13 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },
