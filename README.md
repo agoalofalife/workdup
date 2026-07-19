@@ -185,3 +185,27 @@ The cleanup worker runs on `cleanup_interval` (default `1d`) and removes DB rows
   - Climbing over time → the aged-candidate set is growing (more `Describe` calls per run), which usually tracks a growing *Workflow rows*.
   - A one-off spike → a large batch aged in at once, or Temporal was slow to answer `Describe`.
 - **Alert:** none — low-value diagnostic. A stuck or failing run is caught by *Cleanup runs* (the `ok` heartbeat dropping / `error` appearing).
+
+## HTTP API (RED)
+
+The control-plane HTTP server (`/healthz`, `/readyz`, `/unique-workflows`, `/stats`, `/metrics`) is the **one request-driven subsystem**, so unlike the scan/cleanup panels these use classic RED (Rate / Errors / Duration) — `rate()` and percentiles are appropriate because there's continuous, multi-sample traffic (k8s probes + the Prometheus scrape). These metrics have **no `namespace` label** (the HTTP layer is shared), so they're the only app panels not filtered by `$namespace`.
+
+### Panel: HTTP requests rate (by status)
+
+- **Metric:** `http_requests_total` — a **counter** labeled `route`, `method`, `status`, incremented per request in the `track_metrcis` middleware (`http.rs`).
+- **Query:** `sum by (status)(rate(http_requests_total[$__rate_interval]))` — the **E** in RED. All routes included on purpose: a probe (`/healthz`/`/readyz`) flipping to non-`200` is itself the alarm.
+- **How to read it:** watch for any `4xx`/`5xx` line lifting off zero. `2xx` just confirms traffic is flowing.
+- **Alert:** `sum(rate(http_requests_total{status=~"5.."}[$__rate_interval])) > 0` — the server is returning errors.
+
+### Panel: HTTP requests rate (by route)
+
+- **Query:** `sum by (route)(rate(http_requests_total{route!="/metrics"}[$__rate_interval]))` — the **R**. `/metrics` is excluded because the Prometheus scrape volume dwarfs everything and would bury the real API.
+- **How to read it:** this is the traffic mix — confirm CI is actually hitting `/unique-workflows` / `/stats`, and spot unexpected load.
+- **Alert:** none — diagnostic.
+
+### Panel: HTTP duration (p50/p99 by route)
+
+- **Metric:** `http_request_duration_seconds` — a histogram rendered by the Prometheus exporter as a **summary** with `quantile` labels, labeled `route`.
+- **Query:** `http_request_duration_seconds{quantile="0.5", ...}` and `...quantile="0.99"...`, both filtered `route!~"/metrics|/healthz"` — the **D**, and the most useful HTTP panel. `/metrics` and `/healthz` are stripped so the latency lines that matter stay legible (`/readyz` is kept — it does real DB + Temporal work).
+- **How to read it:** percentiles are valid here (real distribution). Rising p99 on `/unique-workflows` / `/stats` means CI reads are slowing — usually a growing table or SQLite contention.
+- **Alert:** page on a route-specific p99 threshold if CI depends on read latency (e.g. `> 1s`).

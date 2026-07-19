@@ -1054,7 +1054,7 @@
     {
       "type": "timeseries",
       "title": "Cleanup duration (last run)",
-      "description": "Wall-clock time of the last cleanup run (gauge), per namespace. Cleanup runs ~once per cleanup_interval (default 1d), so there's no distribution to percentile — you read each run directly. Scales with the number of aged workflows checked (one DescribeWorkflowExecution gRPC call each), so a slow run = large tracked set or Temporal slow on describes. Low-value diagnostic — no threshold (a run is seconds vs a ~1d interval) and no alert; glance at it if cleanup errors or the DB stops shrinking.",
+      "description": "Wall-clock time of the last cleanup run (gauge), per namespace.",
       "id": 18,
       "datasource": {
         "type": "prometheus",
@@ -1144,7 +1144,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (status)(rate(http_requests_total[5m]))",
+          "expr": "sum by (status)(rate(http_requests_total[$__rate_interval]))",
           "legendFormat": "{{status}}",
           "range": true,
           "instant": false,
@@ -1201,7 +1201,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (route)(rate(http_requests_total[5m]))",
+          "expr": "sum by (route)(rate(http_requests_total{route!=\"/metrics\"}[$__rate_interval]))",
           "legendFormat": "{{route}}",
           "range": true,
           "instant": false,
@@ -1258,7 +1258,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "http_request_duration_seconds{quantile=\"0.5\"}",
+          "expr": "http_request_duration_seconds{quantile=\"0.5\", route!~\"/metrics|/healthz\"}",
           "legendFormat": "p50 {{route}}",
           "range": true,
           "instant": false,
@@ -1270,7 +1270,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "http_request_duration_seconds{quantile=\"0.99\"}",
+          "expr": "http_request_duration_seconds{quantile=\"0.99\", route!~\"/metrics|/healthz\"}",
           "legendFormat": "p99 {{route}}",
           "range": true,
           "instant": false,
