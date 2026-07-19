@@ -566,8 +566,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(workflow_rows)",
-          "legendFormat": "rows",
+          "expr": "sum by (namespace)(workflow_rows{namespace=~\"$namespace\"})",
+          "legendFormat": "{{namespace}}",
           "range": false,
           "instant": true,
           "refId": "A"
@@ -686,8 +686,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "db_distinct_hashes",
-          "legendFormat": "hashes",
+          "expr": "sum by (namespace)(db_distinct_hashes{namespace=~\"$namespace\"})",
+          "legendFormat": "{{namespace}}",
           "range": false,
           "instant": true,
           "refId": "A"
@@ -746,8 +746,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * db_distinct_hashes / sum(workflow_rows)",
-          "legendFormat": "unique %",
+          "expr": "100 * db_distinct_hashes{namespace=~\"$namespace\"} / workflow_rows{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}}",
           "range": false,
           "instant": true,
           "refId": "A"

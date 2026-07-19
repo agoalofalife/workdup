@@ -105,3 +105,26 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
   - **`events/page` already near the server cap** → pages aren't the bottleneck; the history is just large. Bumping the page size won't help much.
   - Rule of thumb: **measure here first, then set a value** (e.g. 500–1000) and confirm pages/p99 fall — don't guess. Note the server caps page size, and larger pages mean larger gRPC messages.
 - **Alert:** none — this is a diagnostic/tuning panel, not an SLO.
+
+## Database (SQLite)
+
+These are **gauges** refreshed periodically from the SQLite store (`db::refresh_db_gauges`). `workflow_rows` and `db_distinct_hashes` are emitted **per namespace** (via `GROUP BY namespace`); `db_file_bytes` is global (one shared DB file).
+
+### Panel: Workflow rows
+
+- **Metric:** `workflow_rows{namespace}` — total rows currently tracked for that namespace (`COUNT(*)` on the `workflows` table), i.e. how many `(workflow_id, run_id)` the scanner is holding state for.
+- **Query:** `sum by (namespace)(workflow_rows{namespace=~"$namespace"})`.
+- **How to read it:** the size of the tracked set per namespace. It grows as new workflows are scanned and shrinks as the cleanup worker removes finished/gone ones — a healthy system settles around the count of *live* workflows. A number that only ever climbs suggests cleanup isn't keeping up.
+- **Caveat:** a namespace whose rows drop to 0 stops appearing in the `GROUP BY`, so its gauge holds the last value until it has rows again.
+
+### Panel: Distinct hashes (dedup target)
+
+- **Metric:** `db_distinct_hashes{namespace}` — number of **distinct semantic hashes** for that namespace (`COUNT(DISTINCT semantic_hash)`). This is the actual deliverable: the count of *unique workflow shapes* CI/QA would replay.
+- **Query:** `sum by (namespace)(db_distinct_hashes{namespace=~"$namespace"})`.
+- **How to read it:** this is the deduplicated set size — always ≤ `workflow_rows`. The gap between them is the win: many rows collapsing into few hashes = lots of duplication captured. Paired with *Unique ratio* (`100 * db_distinct_hashes / workflow_rows`, per namespace) — **lower % = better dedup**. A distinct-hash count that keeps rising as fast as rows means workflows aren't deduplicating (e.g. a normalization bug making every history look unique).
+
+### Panel: DB file size
+
+- **Metric:** `db_file_bytes` — on-disk size of the SQLite file (`std::fs::metadata(db_path)`). **Global**, not per namespace — it's one file for all namespaces.
+- **Query:** `db_file_bytes`.
+- **How to read it:** capacity/growth signal for the volume the DB is mounted on. Should track roughly with total `workflow_rows`; steady growth without a matching row increase can indicate WAL/vacuum behavior worth checking. Watch it against the disk you provision for the DB.

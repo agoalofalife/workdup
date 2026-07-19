@@ -33,15 +33,31 @@ pub fn open(path: &str) -> Result<Connection> {
 }
 
 pub fn refresh_db_gauges(conn: &Connection, db_path: &str) -> anyhow::Result<()> {
-    let rows: i64 = conn.query_row("SELECT COUNT(*) FROM workflows", [], |r| r.get(0))?;
+    // per-namespace row counts.
+    // NOTE: a namespace with 0 rows won't appear in GROUP BY,
+    // so its gauge holds its last value until rows exist again (standard labeled-gauge caveat).
+    {
+        let mut stmt =
+            conn.prepare("SELECT namespace, COUNT(*) FROM workflows GROUP BY namespace")?;
+        let counts = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+        for row in counts {
+            let (namespace, rows) = row?;
+            metrics::gauge!("workflow_rows", "namespace" => namespace).set(rows as f64);
+        }
+    }
 
-    metrics::gauge!("workflow_rows").set(rows as f64);
-    let hashes: i64 = conn.query_row(
-        "SELECT COUNT(DISTINCT semantic_hash) FROM workflows",
-        [],
-        |r| r.get(0),
-    )?;
-    metrics::gauge!("db_distinct_hashes").set(hashes as f64);
+    // per-namespace distinct semantic hashes (dedup target). Same 0-rows caveat as above.
+    {
+        let mut stmt = conn.prepare(
+            "SELECT namespace, COUNT(DISTINCT semantic_hash) FROM workflows GROUP BY namespace",
+        )?;
+        let counts = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+        for row in counts {
+            let (namespace, hashes) = row?;
+            metrics::gauge!("db_distinct_hashes", "namespace" => namespace).set(hashes as f64);
+        }
+    }
+
     let bytes = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
     metrics::gauge!("db_file_bytes").set(bytes as f64);
     Ok(())
