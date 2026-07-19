@@ -49,6 +49,17 @@
         },
         "label": "scan_interval (s)",
         "description": "Your scan_interval in seconds (10m=600, 30m=1800, 60m=3600). Drives the 'falling behind' threshold line on the Scan tick duration panel."
+      },
+      {
+        "name": "cleanup_interval",
+        "type": "textbox",
+        "query": "86400",
+        "current": {
+          "text": "86400",
+          "value": "86400"
+        },
+        "label": "cleanup_interval (s)",
+        "description": "Your cleanup_interval in seconds (1d=86400, 12h=43200). Drives the per-interval window on the Cleanup runs panel — expect ~1 ok run per interval."
       }
     ]
   },
@@ -926,8 +937,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Cleanup runs rate (ok vs error)",
-      "description": "",
+      "title": "Cleanup runs (ok vs error, per interval)",
+      "description": "Cleanup runs over the last cleanup_interval window, split by result.",
       "id": 16,
       "datasource": {
         "type": "prometheus",
@@ -946,7 +957,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace,result)(rate(cleanup_runs_total{namespace=~\"$namespace\"}[15m]))",
+          "expr": "sum by (namespace,result)(increase(cleanup_runs_total{namespace=~\"$namespace\"}[${cleanup_interval}s]))",
           "legendFormat": "{{namespace}} {{result}}",
           "range": true,
           "instant": false,
@@ -955,12 +966,13 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },

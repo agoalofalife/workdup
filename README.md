@@ -14,6 +14,7 @@ App metrics are exposed on `/metrics` (see `[http].port`); Temporal SDK gRPC met
 | --- | --- | --- | --- |
 | `$namespace` | query (multi-select) | `All` | Filters every panel by Temporal namespace. Populated from `label_values(scan_ticks_total, namespace)`. |
 | `$scan_interval` | textbox | `600` | Your `scan_interval` **in seconds** (10m = `600`, 30m = `1800`, 60m = `3600`). Drives the red "falling-behind" threshold line on the *Scan tick duration* panel — set it to match your config (`workdup.toml`). |
+| `$cleanup_interval` | textbox | `86400` | Your `cleanup_interval` **in seconds** (1d = `86400`, 12h = `43200`). Drives the per-interval window on the *Cleanup runs* panel (expect ~1 ok run per interval) — set it to match your config. |
 
 ### Panel: Scan tick duration (last, per namespace)
 
@@ -147,3 +148,20 @@ These are **gauges** refreshed periodically from the SQLite store (`db::refresh_
 - **Queries:** `db_write_duration_seconds{quantile="0.5"}` and `{quantile="0.99"}`.
 - **How to read it:** a **secondary diagnostic**, not a primary signal. Local SQLite upserts are normally sub-millisecond, so **p50 hugs 0** and only **p99** moves — and only under **write contention** (the scanner's upserts and the cleanup worker's deletes serialize on SQLite's single writer, waiting up to `busy_timeout` = 5s) or a **slow disk**. Because writes are bursty (clustered in each tick) and it's a summary, p99 is noisy when few workflows are updated and solid during backfill.
 - **When to look at it:** when *DB write errors* (busy_timeout exceeded) or *Scan tick duration* spike — a rising p99 here explains why. It has **no alert of its own**; you alert on the write *errors* (panel above) and tick duration instead.
+
+## Cleanup worker
+
+The cleanup worker runs on `cleanup_interval` (default `1d`) and removes DB rows for workflows that finished or disappeared from Temporal.
+
+### Panel: Cleanup runs (ok vs error, per interval)
+
+- **Metric:** `cleanup_runs_total` — a **counter**, labeled `namespace` and `result` (`ok`/`error`), incremented once per cleanup tick in `cleanup.rs`.
+- **Query:** `sum by (namespace, result)(increase(cleanup_runs_total{namespace=~"$namespace"}[${cleanup_interval}s]))` — cleanup runs in the last interval, split by result. The window tracks the `$cleanup_interval` variable.
+- **How to read it — a per-interval heartbeat:** expect **~1 `ok` per interval**. Because cleanup runs so rarely, "did it run at all?" is itself the signal:
+  - `ok` drops toward `0` → the cleanup worker stopped running (dead/stuck).
+  - any `error` → a **whole run threw**. Per-workflow gRPC errors (`Unavailable`/`DeadlineExceeded`/etc.) are **swallowed** inside the run, so `error` ≈ a **DB query failure** (the `SELECT`/`DELETE`).
+- **Alert:**
+
+  ```promql
+  increase(cleanup_runs_total{namespace=~"$namespace", result="error"}[${cleanup_interval}s]) > 0   # a cleanup run failed (≈ DB)
+  ```
