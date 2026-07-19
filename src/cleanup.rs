@@ -40,8 +40,8 @@ pub async fn run(
 
                 let result = run_once(&mut client, &cfg.name, &conn, &token).await;
 
-                metrics::histogram!("cleanup_duration_seconds", "namespace" => cfg.name.clone())
-                                    .record(start.elapsed().as_secs_f64());
+                metrics::gauge!("cleanup_duration_seconds", "namespace" => cfg.name.clone())
+                    .set(start.elapsed().as_secs_f64());
 
                 metrics::counter!(
                     "cleanup_runs_total",

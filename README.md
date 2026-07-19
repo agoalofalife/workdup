@@ -175,3 +175,13 @@ The cleanup worker runs on `cleanup_interval` (default `1d`) and removes DB rows
   - **Persistently `0` while *Workflow rows* keeps climbing** → the tracked set isn't being reaped and will grow unbounded → investigate (workflows never completing, or cleanup not matching them).
   - A spike → a batch of workflows completed since the last run (normal churn).
 - **Alert:** none on its own — pair it visually with *Workflow rows*; the actionable failure is covered by *Cleanup runs* (error) and unbounded row growth.
+
+### Panel: Cleanup duration (last run)
+
+- **Metric:** `cleanup_duration_seconds{namespace}` — a **gauge** set at the end of each cleanup tick in `cleanup.rs` with the wall-clock time the last `run_once` took.
+- **Query:** `cleanup_duration_seconds{namespace=~"$namespace"}`.
+- **How to read it — a diagnostic, not an SLO:** the duration scales with **how many aged rows the run had to check**, because each candidate costs one `DescribeWorkflowExecution` gRPC round-trip to Temporal:
+  - Low and flat → few workflows aged past the 1-day threshold; nothing to do.
+  - Climbing over time → the aged-candidate set is growing (more `Describe` calls per run), which usually tracks a growing *Workflow rows*.
+  - A one-off spike → a large batch aged in at once, or Temporal was slow to answer `Describe`.
+- **Alert:** none — low-value diagnostic. A stuck or failing run is caught by *Cleanup runs* (the `ok` heartbeat dropping / `error` appearing).

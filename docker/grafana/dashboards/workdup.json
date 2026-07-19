@@ -80,7 +80,7 @@
     {
       "type": "timeseries",
       "title": "Scan tick duration (last, per namespace)",
-      "description": "Wall-clock time of the last scan tick (gauge). One point per tick \u2014 the scan runs every scan_interval (10\u201360m), so percentiles are meaningless at this frequency; you read each tick directly. Main 'are we keeping up?' signal: compare against scan_interval (threshold line). If it approaches/crosses the interval, the scan is falling behind.",
+      "description": "Wall-clock time of the last scan tick (gauge).",
       "id": 2,
       "datasource": {
         "type": "prometheus",
@@ -1053,8 +1053,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Cleanup duration (p50/p99)",
-      "description": "",
+      "title": "Cleanup duration (last run)",
+      "description": "Wall-clock time of the last cleanup run (gauge), per namespace. Cleanup runs ~once per cleanup_interval (default 1d), so there's no distribution to percentile — you read each run directly. Scales with the number of aged workflows checked (one DescribeWorkflowExecution gRPC call each), so a slow run = large tracked set or Temporal slow on describes. Low-value diagnostic — no threshold (a run is seconds vs a ~1d interval) and no alert; glance at it if cleanup errors or the DB stops shrinking.",
       "id": 18,
       "datasource": {
         "type": "prometheus",
@@ -1073,23 +1073,11 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "cleanup_duration_seconds{namespace=~\"$namespace\",quantile=\"0.5\"}",
-          "legendFormat": "p50 {{namespace}}",
+          "expr": "cleanup_duration_seconds{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}}",
           "range": true,
           "instant": false,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "cleanup_duration_seconds{namespace=~\"$namespace\",quantile=\"0.99\"}",
-          "legendFormat": "p99 {{namespace}}",
-          "range": true,
-          "instant": false,
-          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1097,9 +1085,10 @@
           "unit": "s",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },
