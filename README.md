@@ -128,3 +128,15 @@ These are **gauges** refreshed periodically from the SQLite store (`db::refresh_
 - **Metric:** `db_file_bytes` — on-disk size of the SQLite file (`std::fs::metadata(db_path)`). **Global**, not per namespace — it's one file for all namespaces.
 - **Query:** `db_file_bytes`.
 - **How to read it:** capacity/growth signal for the volume the DB is mounted on. Should track roughly with total `workflow_rows`; steady growth without a matching row increase can indicate WAL/vacuum behavior worth checking. Watch it against the disk you provision for the DB.
+
+### Panel: DB write errors (per 1h)
+
+- **Metric:** `db_writes_total` — a **counter**, labeled `op` (`upsert`) and `result` (`ok`/`error`), incremented once per DB upsert in `scanner.rs`.
+- **Query:** `sum(increase(db_writes_total{result="error"}[1h])) or vector(0)` — count of **failed** writes in the last hour. `or vector(0)` keeps a green `0` line, so an empty panel means "healthy," not "no data."
+- **How to read it:** expected flat `0`. SQLite is **single-writer**, so any error here means a write couldn't land — **lock contention / `busy_timeout` (5s) exceeded / disk problem**. This is the *only* place a DB-write failure is distinguishable from other tick errors (a failed write also shows up as a `scan_ticks_total{result="error"}`, but this pinpoints it as the DB).
+  - The write *count* (`result="ok"`) is intentionally not shown — it's redundant with `scan_workflows_updated` on the *Workflow throughput* panel. Throughput/rps isn't meaningful here anyway: writes are bursty (clustered in each tick), so a per-second rate over a short window sits near zero.
+- **Alert:**
+
+  ```promql
+  increase(db_writes_total{result="error"}[1h]) > 0   # SQLite write failing → lock contention / disk
+  ```

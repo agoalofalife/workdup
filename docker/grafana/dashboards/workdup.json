@@ -786,8 +786,8 @@
     },
     {
       "type": "timeseries",
-      "title": "DB writes rate (op / result)",
-      "description": "",
+      "title": "DB write errors (per 1h)",
+      "description": "SQLite failed upserts over the last hour. SQLite is single-writer, so an error here = lock contention / busy_timeout exceeded / disk problem. Expected flat 0 ('or vector(0)' keeps a green zero line so empty means healthy, not 'no data'). This is the only place DB-write failures are distinguishable from other tick errors.",
       "id": 13,
       "datasource": {
         "type": "prometheus",
@@ -806,8 +806,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (op,result)(rate(db_writes_total[5m]))",
-          "legendFormat": "{{op}} {{result}}",
+          "expr": "sum(increase(db_writes_total{result=\"error\"}[1h])) or vector(0)",
+          "legendFormat": "write errors",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -815,12 +815,13 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "wps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },
