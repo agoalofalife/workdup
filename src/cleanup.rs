@@ -79,6 +79,9 @@ async fn run_once(
         rows.collect::<rusqlite::Result<_>>()?
     };
 
+    // exact rows deleted in THIS run → emitted as a gauge at the end
+    let mut deleted_this_run: u64 = 0;
+
     for (workflow_id, run_id) in candidates {
         if token.is_cancelled() {
             info!("cancellation requested - stopping cleanup at safe point");
@@ -90,7 +93,8 @@ async fn run_once(
                 if status != WorkflowExecutionStatus::Running {
                     // run_id is important, because continue_as_new feature
                     // workflow_id might have few run ids
-                    delete_workflow(conn, namespace, &workflow_id, &run_id)?;
+                    deleted_this_run +=
+                        delete_workflow(conn, namespace, &workflow_id, &run_id)? as u64;
                     info!(%workflow_id, ?status, "cleanup: removed completed workflow in temporal");
                 }
             }
@@ -98,7 +102,8 @@ async fn run_once(
             Err(status) => match status.code() {
                 Code::NotFound => {
                     // gone from temporal server, might be retention period for example if in temporal cloud
-                    delete_workflow(conn, namespace, &workflow_id, &run_id)?;
+                    deleted_this_run +=
+                        delete_workflow(conn, namespace, &workflow_id, &run_id)? as u64;
                     info!(%workflow_id, ?status, "cleanup: not found in temporal, removed state record");
                 }
                 Code::Unavailable | Code::DeadlineExceeded => {
@@ -110,6 +115,11 @@ async fn run_once(
             },
         }
     }
+
+    // exact per-run total (gauge = last run's deletions, held until next run)
+    metrics::gauge!("cleanup_rows_deleted", "namespace" => namespace.to_string())
+        .set(deleted_this_run as f64);
+
     Ok(())
 }
 
@@ -150,7 +160,5 @@ fn delete_workflow(
         "DELETE FROM workflows WHERE namespace =?1 AND workflow_id = ?2 AND run_id = ?3",
         (namespace, &workflow_id, &run_id),
     )?;
-    metrics::counter!("cleanup_rows_deleted_total", "namespace" => namespace.to_string())
-        .increment(deleted as u64);
     Ok(deleted)
 }

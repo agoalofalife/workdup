@@ -165,3 +165,13 @@ The cleanup worker runs on `cleanup_interval` (default `1d`) and removes DB rows
   ```promql
   increase(cleanup_runs_total{namespace=~"$namespace", result="error"}[${cleanup_interval}s]) > 0   # a cleanup run failed (≈ DB)
   ```
+
+### Panel: Cleanup rows deleted (per run)
+
+- **Metric:** `cleanup_rows_deleted{namespace}` — a **gauge** set at the end of each `run_once` in `cleanup.rs` with the **exact** number of rows that run removed (workflows that left the tracked set: finished / failed / canceled, or gone from Temporal via retention).
+- **Query:** `cleanup_rows_deleted{namespace=~"$namespace"}`.
+- **How to read it:** this is the **turnover** signal — the counterweight to the scanner's inserts (`workflow_rows` net change ≈ scanner adds − cleanup deletes). It's a per-run gauge, so it holds the last run's count until the next run (stepped line):
+  - Steady, moderate deletes per run → healthy reaping of completed workflows.
+  - **Persistently `0` while *Workflow rows* keeps climbing** → the tracked set isn't being reaped and will grow unbounded → investigate (workflows never completing, or cleanup not matching them).
+  - A spike → a batch of workflows completed since the last run (normal churn).
+- **Alert:** none on its own — pair it visually with *Workflow rows*; the actionable failure is covered by *Cleanup runs* (error) and unbounded row growth.

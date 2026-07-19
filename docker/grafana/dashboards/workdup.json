@@ -995,8 +995,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Rows deleted rate",
-      "description": "",
+      "title": "Cleanup rows deleted (per run)",
+      "description": "Exact number of rows removed by the last cleanup run (gauge set at end of run_once), per namespace — workflows that left the tracked set (finished/failed/canceled or gone from Temporal).",
       "id": 17,
       "datasource": {
         "type": "prometheus",
@@ -1015,7 +1015,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace)(rate(cleanup_rows_deleted_total{namespace=~\"$namespace\"}[15m]))",
+          "expr": "cleanup_rows_deleted{namespace=~\"$namespace\"}",
           "legendFormat": "{{namespace}}",
           "range": true,
           "instant": false,
@@ -1024,12 +1024,13 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "wps",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "smooth",
+            "lineInterpolation": "stepAfter",
             "fillOpacity": 10,
-            "showPoints": "never",
+            "showPoints": "always",
+            "pointSize": 5,
             "lineWidth": 1
           }
         },
