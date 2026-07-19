@@ -140,3 +140,10 @@ These are **gauges** refreshed periodically from the SQLite store (`db::refresh_
   ```promql
   increase(db_writes_total{result="error"}[1h]) > 0   # SQLite write failing → lock contention / disk
   ```
+
+### Panel: DB write duration (p50/p99)
+
+- **Metric:** `db_write_duration_seconds` — a per-upsert latency histogram (exported as a summary), labeled `op` (`upsert`) only. **No `namespace` label by design:** write latency is a property of the shared DB file / disk and cross-worker contention, not of any single namespace.
+- **Queries:** `db_write_duration_seconds{quantile="0.5"}` and `{quantile="0.99"}`.
+- **How to read it:** a **secondary diagnostic**, not a primary signal. Local SQLite upserts are normally sub-millisecond, so **p50 hugs 0** and only **p99** moves — and only under **write contention** (the scanner's upserts and the cleanup worker's deletes serialize on SQLite's single writer, waiting up to `busy_timeout` = 5s) or a **slow disk**. Because writes are bursty (clustered in each tick) and it's a summary, p99 is noisy when few workflows are updated and solid during backfill.
+- **When to look at it:** when *DB write errors* (busy_timeout exceeded) or *Scan tick duration* spike — a rising p99 here explains why. It has **no alert of its own**; you alert on the write *errors* (panel above) and tick duration instead.

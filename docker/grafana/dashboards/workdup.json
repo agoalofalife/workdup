@@ -844,8 +844,8 @@
     },
     {
       "type": "timeseries",
-      "title": "DB write duration (p50/p90/p99)",
-      "description": "SQLite has a single writer \u2014 watch this under load.",
+      "title": "DB write duration (p50/p99)",
+      "description": "Per-upsert SQLite write latency (op=upsert only; no namespace \u2014 write latency is a property of the shared DB/disk, not any one namespace). Secondary diagnostic: local writes are normally sub-ms, so p50 hugs 0 and only p99 moves \u2014 under write contention or a slow disk.",
       "id": 14,
       "datasource": {
         "type": "prometheus",
@@ -876,23 +876,11 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "db_write_duration_seconds{quantile=\"0.9\"}",
-          "legendFormat": "p90 {{op}}",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
           "expr": "db_write_duration_seconds{quantile=\"0.99\"}",
           "legendFormat": "p99 {{op}}",
           "range": true,
           "instant": false,
-          "refId": "C"
+          "refId": "B"
         }
       ],
       "fieldConfig": {
