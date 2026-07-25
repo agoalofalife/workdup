@@ -1,0 +1,136 @@
+name: docs
+
+# Documentation site (MkDocs Material + mike), published to GitHub Pages.
+#
+#   pull request  -> strict build + link check, uploaded as a preview artifact
+#   push to main  -> publishes /dev/
+#   push v*.*.*   -> publishes /X.Y/ and moves the /latest/ alias
+#
+# Deliberately separate from release.yml: a docs deploy should not wait on a
+# four-target build matrix, and a failed image push should not leave the
+# documentation unpublished. The only thing the two share is the version-guard
+# logic, which is copied verbatim so they cannot drift.
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'overrides/**'
+      - 'mkdocs.yml'
+      - 'docs-requirements.txt'
+      - '.github/workflows/docs.yml'
+      # the Configuration page includes this file verbatim via pymdownx.snippets
+      - 'wd.example.toml'
+  # NO `paths:` filter here, deliberately. A path filter on `push` applies to
+  # tag pushes as well, so tagging a commit that happens not to touch docs/
+  # would silently skip the release deploy — the kind of bug you discover a
+  # month later when /0.1/ is missing. The build takes seconds; run it always.
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  # Lets you publish the first /dev/ build without touching a docs file.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  # ---------------------------------------------------------------- preview --
+  build:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: docs-requirements.txt
+
+      - run: pip install -r docs-requirements.txt
+
+      # --strict turns warnings into errors: a broken internal link, a missing
+      # snippet include or an orphaned page fails here rather than shipping.
+      - name: Build (strict)
+        run: mkdocs build --strict
+
+      # --offline checks only internal links: fast, and immune to rate limits
+      # and flaky third-party sites turning an unrelated PR red.
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --offline ./site
+          fail: true
+
+      # GitHub Pages has no native PR previews; download and open index.html.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: site/
+          retention-days: 14
+
+  # ----------------------------------------------------------------- deploy --
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Never cancel: an interrupted mike run can leave gh-pages half-written.
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # mike needs the gh-pages history
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: docs-requirements.txt
+
+      - run: pip install -r docs-requirements.txt
+
+      - name: Configure git
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      # -- main -> /dev/ ----------------------------------------------------
+      - name: Deploy dev
+        if: startsWith(github.ref, 'refs/heads/')
+        run: mike deploy --push dev
+
+      # Until the first release exists there is no `latest`, so the site root
+      # would 404. Point it at /dev/ instead — and stop doing so the moment a
+      # real release takes over.
+      - name: Ensure the site root resolves
+        if: startsWith(github.ref, 'refs/heads/')
+        run: |
+          if mike list --json 2>/dev/null | grep -q '"latest"'; then
+            echo "latest exists - leaving the default alone"
+          else
+            echo "no latest yet - pointing the site root at dev"
+            mike set-default --push dev
+          fi
+
+      # -- tag -> /X.Y/ + latest --------------------------------------------
+      - name: Deploy release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # Identical extraction to release.yml's check-version job.
+          tag="${GITHUB_REF_NAME#v}"
+          crate=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n1)
+          echo "tag=$tag crate=$crate"
+          if [ "$tag" != "$crate" ]; then
+            echo "::error::tag v$tag does not match Cargo.toml version $crate"
+            exit 1
+          fi
+          # Patch releases redeploy their X.Y directory in place rather than
+          # adding a near-identical entry to the version switcher.
+          mike deploy --push --update-aliases "${tag%.*}" latest
+          # First release takes the root over from dev.
+          mike set-default --push latest
