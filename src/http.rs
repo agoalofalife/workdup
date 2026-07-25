@@ -104,10 +104,12 @@ async fn stats(
 
         let mut stmt = conn.prepare(
             "
-            SELECT count(*) as workflows_count, (SELECT
-            COUNT(distinct semantic_hash)
-            FROM workflows) as unique_workflows_count from workflows
-            WHERE namespace = ?1",
+            SELECT
+                COUNT(*) AS workflows_count,
+                COUNT(DISTINCT semantic_hash) AS unique_workflows_count
+            FROM workflows
+            WHERE namespace = ?1
+            ",
         )?;
 
         let items = stmt
