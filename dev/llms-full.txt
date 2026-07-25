@@ -1,0 +1,89 @@
+# workdup
+
+> Temporal workflow history deduplication for replay-test optimization
+
+workdup maintains a live, deduplicated set of Temporal workflows (by semantic hash) so CI/QA can replay a minimal covering set instead of every history.
+
+# Getting started
+
+# Overview
+
+What workdup is, the replay-cost problem it solves, and the idea in one diagram.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 7** of the documentation rollout — see `spec/documentation.md`.
+
+# Installation
+
+Install from a release binary or build from source.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 4** of the documentation rollout — see `spec/documentation.md`.
+
+# How to use
+
+The daily loop, and a language-agnostic CI/CD replay recipe.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 7** of the documentation rollout — see `spec/documentation.md`.
+# Reference
+
+# CLI reference
+
+Every command, argument and flag, with its environment fallback.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+
+# Configuration
+
+The `workdup.toml` file: sections, parameters, overrides and secrets.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+
+# Environment variables
+
+Every variable the binary reads, plus the installer-only ones.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+
+# HTTP endpoints
+
+All five routes, with parameters, status codes and real response bodies.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+# Operations
+
+# How it works
+
+Two-level polling, event normalization, hashing, storage, and the cleanup worker.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 7** of the documentation rollout — see `spec/documentation.md`.
+
+# Metrics
+
+Every metric: what it means, how to read it, and the alert worth setting.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 3** of the documentation rollout — see `spec/documentation.md`.
+
+# Logs
+
+The JSON log format, filtering with `RUST_LOG`, and the lines that matter.
+
+Placeholder
+
+This page has not been written yet. It lands in **Step 6** of the documentation rollout — see `spec/documentation.md`.
