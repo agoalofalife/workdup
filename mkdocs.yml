@@ -1,0 +1,138 @@
+site_name: workdup
+site_description: Temporal workflow history deduplication for replay-test optimization
+site_url: https://agoalofalife.github.io/workdup/
+site_author: agoalofalife
+copyright: >-
+  Licensed under the MIT License.
+
+repo_url: https://github.com/agoalofalife/workdup
+repo_name: agoalofalife/workdup
+# Resolves to https://github.com/agoalofalife/workdup/edit/main/docs/<page>.md
+# Note: always points at `main`, so the edit button on an older version edits
+# the current source. Documented on the Contributing page.
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  # Click-to-zoom, which matters for dense Grafana screenshots.
+  - glightbox
+  - mike:
+      alias_type: redirect
+      canonical_version: latest
+  # Publishes /llms.txt and /llms-full.txt — the free AI-assistance tier.
+  - llmstxt:
+      full_output: llms-full.txt
+      markdown_description: >-
+        workdup maintains a live, deduplicated set of Temporal workflows (by semantic
+        hash) so CI/QA can replay a minimal covering set instead of every history.
+      sections:
+        Getting started:
+          - index.md
+          - installation.md
+          - usage.md
+        Reference:
+          - cli.md
+          - configuration.md
+          - environment-variables.md
+          - http-endpoints.md
+        Operations:
+          - how-it-works.md
+          - metrics.md
+          - logs.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.tabbed:
+      alternate_style: true
+  # base_path '.' lets docs pull in real repo files (e.g. wd.example.toml)
+  # instead of retyping them; check_paths turns a missing include into a
+  # build failure rather than a silently stale page.
+  - pymdownx.snippets:
+      base_path: ['.', 'docs']
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra:
+  version:
+    provider: mike
+    alias: true
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/agoalofalife/workdup
+      name: workdup on GitHub
+
+nav:
+  - Overview: index.md
+  - Installation: installation.md
+  - How to use: usage.md
+  - How it works: how-it-works.md
+  - CLI reference: cli.md
+  - Configuration: configuration.md
+  - Environment variables: environment-variables.md
+  - HTTP endpoints: http-endpoints.md
+  - Metrics: metrics.md
+  - Logs: logs.md
+  - Contributing: contributing.md
+
+# Warnings become errors: a broken internal link or a missing include fails CI
+# instead of shipping a page that quietly lies.
+strict: true
