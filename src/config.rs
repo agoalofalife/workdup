@@ -7,6 +7,7 @@ use serde::Deserialize;
 use std::{path::PathBuf, time::Duration};
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MainConfig {
     #[serde(default)]
     pub defaults: Defaults,
@@ -19,6 +20,7 @@ pub struct MainConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Defaults {
     #[serde(default = "default_scan", with = "humantime_serde")]
     pub scan_interval: Duration,
@@ -41,6 +43,7 @@ impl Default for Defaults {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Namespace {
     pub name: String,
     pub host: String,
@@ -55,6 +58,7 @@ pub struct Namespace {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Tls {
     pub cert_path: PathBuf,
     pub key_path: PathBuf,
@@ -62,7 +66,7 @@ pub struct Tls {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Http {
     #[serde(default = "default_http_port")]
     pub port: u16,
