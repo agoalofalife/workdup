@@ -17,6 +17,7 @@ use anyhow::Result;
 use clap::Parser;
 use std::thread;
 use tokio::runtime::Builder;
+use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, error, info};
 
@@ -25,8 +26,6 @@ fn main() -> Result<()> {
 
     dotenvy::dotenv().ok(); // env first of all
     logging::init_logging();
-
-    db::init_schema(db_path)?;
 
     let cli = Cli::parse();
     let cfg = config::load(&cli.config)?;
@@ -39,6 +38,8 @@ fn main() -> Result<()> {
             Ok(())
         }
         Cmd::Run => {
+            db::init_schema(db_path)?;
+
             let token = CancellationToken::new();
 
             // The SDK Prometheus exporter binds a listener and `tokio::spawn`s its HTTP
@@ -89,12 +90,9 @@ fn main() -> Result<()> {
                 }
             });
 
-            // Drives the ctrl_c wait and, concurrently, the exporter's server task for
+            // Drives the shutdown wait and, concurrently, the exporter's server task for
             // the whole lifetime of the process.
-            rt.block_on(async {
-                let _ = tokio::signal::ctrl_c().await;
-                info!("shutdown requested");
-            });
+            rt.block_on(shutdown_signal());
 
             token.cancel();
 
@@ -107,6 +105,30 @@ fn main() -> Result<()> {
 
             Ok(())
         }
+    }
+}
+
+/// Resolves on SIGINT or SIGTERM.
+///
+/// Kubernetes sends SIGTERM on pod termination and only escalates to SIGKILL
+/// once the grace period expires — waiting on Ctrl-C alone means the token is
+/// never cancelled and every rollout ends in a hard kill.
+async fn shutdown_signal() {
+    let mut sigterm = match signal(SignalKind::terminate()) {
+        Ok(s) => s,
+        Err(e) => {
+            // Losing SIGTERM shouldn't stop the daemon from starting; degrade
+            // to SIGINT-only rather than refusing to run.
+            error!(error = %e, "could not install SIGTERM handler, watching SIGINT only");
+            let _ = tokio::signal::ctrl_c().await;
+            info!(signal = "SIGINT", "shutdown requested");
+            return;
+        }
+    };
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => info!(signal = "SIGINT", "shutdown requested"),
+        _ = sigterm.recv()          => info!(signal = "SIGTERM", "shutdown requested"),
     }
 }
 
