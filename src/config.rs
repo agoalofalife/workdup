@@ -66,15 +66,15 @@ pub struct Tls {
 pub struct Http {
     #[serde(default = "default_http_port")]
     pub port: u16,
-    #[serde(default = "default_temporal_metric_port")]
-    pub temporal_metric_port: u16,
+    #[serde(default = "default_temporal_metrics_port")]
+    pub temporal_metrics_port: u16,
 }
 
 impl Default for Http {
     fn default() -> Self {
         Self {
             port: default_http_port(),
-            temporal_metric_port: default_temporal_metric_port(),
+            temporal_metrics_port: default_temporal_metrics_port(),
         }
     }
 }
@@ -104,7 +104,7 @@ fn default_http_port() -> u16 {
     8000
 }
 
-fn default_temporal_metric_port() -> u16 {
+fn default_temporal_metrics_port() -> u16 {
     9000
 }
 

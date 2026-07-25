@@ -48,9 +48,8 @@ fn main() -> Result<()> {
             // host the exporter on this dedicated main runtime instead.
             let rt = Builder::new_current_thread().enable_all().build()?;
 
-            // let metrics_addr: std::net::SocketAddr = "0.0.0.0:9464".parse()?; // add in cfg
             let metrics_addr: std::net::SocketAddr =
-                format!("0.0.0.0:{}", cfg.http.temporal_metric_port).parse()?;
+                format!("0.0.0.0:{}", cfg.http.temporal_metrics_port).parse()?;
 
             let meter = rt.block_on(async move { temporal_meter(metrics_addr) })?;
 
