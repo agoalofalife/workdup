@@ -1,0 +1,14 @@
+# Documentation build dependencies.
+#
+# Pinned so a build in six months produces the same site. Bump deliberately,
+# in its own PR, with `mkdocs build --strict` green.
+#
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r docs-requirements.txt
+#   .venv/bin/mkdocs serve
+
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+mike==2.2.0
+mkdocs-glightbox==0.5.2
+mkdocs-llmstxt==0.5.0
