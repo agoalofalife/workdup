@@ -1,0 +1,19 @@
+docs-requirements.txt
+  s_ac96dbb4e33553::t_058775cff11299 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d98a2e77c6a0e5ef6fad7f9f4102d8f8963697de",
+  "prompts": {},
+  "sessions": {
+    "s_ac96dbb4e33553": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f5fa89b-0746-4934-9b8e-5532f28ba410",
+        "model": "claude-opus-5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
