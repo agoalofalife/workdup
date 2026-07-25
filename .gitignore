@@ -6,3 +6,7 @@
 /data
 *.pem
 wd.toml
+
+# documentation build
+/.venv
+/site
