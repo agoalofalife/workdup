@@ -1,0 +1,51 @@
+docs/http-endpoints.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/logs.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/stylesheets/extra.css
+  s_ac96dbb4e33553::t_b45fa717df80db 1-31
+docs/configuration.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/metrics.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/cli.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/usage.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/assets/images/metrics/.gitkeep
+  s_ac96dbb4e33553::t_f5619f83aa29f5 1
+docs/installation.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/environment-variables.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/index.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+docs/contributing.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+.gitignore
+  s_ac96dbb4e33553::t_a3a9531aaff844 9-12
+overrides/partials/actions.html
+  s_ac96dbb4e33553::t_e4bbcda087e7a8 1-38
+docs/assets/images/installation/.gitkeep
+  s_ac96dbb4e33553::t_f5619f83aa29f5 1
+docs/assets/images/how-it-works/.gitkeep
+  s_ac96dbb4e33553::t_f5619f83aa29f5 1
+docs/how-it-works.md
+  s_ac96dbb4e33553::t_85126ccda8afe3 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "171c101a15d1c27caf75fa566872933965d78f7a",
+  "prompts": {},
+  "sessions": {
+    "s_ac96dbb4e33553": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f5fa89b-0746-4934-9b8e-5532f28ba410",
+        "model": "claude-opus-5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
