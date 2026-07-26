@@ -57,7 +57,7 @@ plugins:
   - glightbox
   - mike:
       alias_type: redirect
-      canonical_version: latest
+
   # Publishes /llms.txt and /llms-full.txt — the free AI-assistance tier.
   - llmstxt:
       full_output: llms-full.txt
