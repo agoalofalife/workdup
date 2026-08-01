@@ -534,6 +534,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logs
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -550,6 +568,130 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spans" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spans
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust_log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RUST_LOG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lines-worth-knowing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lines worth knowing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lines worth knowing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scanner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cleanup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropped-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dropped workflows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#startup-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup failures
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -602,6 +744,119 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spans" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spans
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust_log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RUST_LOG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lines-worth-knowing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lines worth knowing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lines worth knowing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scanner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cleanup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropped-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dropped workflows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#startup-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup failures
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -645,11 +900,249 @@
 
 <h1 id="logs">Logs<a class="headerlink" href="#logs" title="Permanent link">¶</a></h1>
 <p>The JSON log format, filtering with <code>RUST_LOG</code>, and the lines that matter.</p>
-<div class="admonition warning">
-<p class="admonition-title">Placeholder</p>
-<p>This page has not been written yet. It lands in <strong>Step 6</strong> of the documentation
-rollout — see <code>spec/documentation.md</code>.</p>
-</div>
+<p>workdup writes one JSON object per line to <strong>stdout</strong>. There is no file logging and no
+rotation — collect it with your container runtime or process supervisor.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="nt">"timestamp"</span><span class="p">:</span><span class="s2">"2026-08-01T13:17:57.653008Z"</span><span class="p">,</span><span class="nt">"level"</span><span class="p">:</span><span class="s2">"INFO"</span><span class="p">,</span><span class="nt">"fields"</span><span class="p">:{</span><span class="nt">"message"</span><span class="p">:</span><span class="s2">"http server listening on 0.0.0.0:8123"</span><span class="p">},</span><span class="nt">"target"</span><span class="p">:</span><span class="s2">"workdup::http"</span><span class="p">}</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="p">{</span><span class="nt">"timestamp"</span><span class="p">:</span><span class="s2">"2026-08-01T13:17:57.661874Z"</span><span class="p">,</span><span class="nt">"level"</span><span class="p">:</span><span class="s2">"ERROR"</span><span class="p">,</span><span class="nt">"fields"</span><span class="p">:{</span><span class="nt">"message"</span><span class="p">:</span><span class="s2">"worker exited with error"</span><span class="p">,</span><span class="nt">"worker"</span><span class="p">:</span><span class="s2">"scanner"</span><span class="p">,</span><span class="nt">"error"</span><span class="p">:</span><span class="s2">"Server connection error: ..."</span><span class="p">},</span><span class="nt">"target"</span><span class="p">:</span><span class="s2">"workdup"</span><span class="p">}</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">{</span><span class="nt">"timestamp"</span><span class="p">:</span><span class="s2">"2026-08-01T13:18:01.671974Z"</span><span class="p">,</span><span class="nt">"level"</span><span class="p">:</span><span class="s2">"INFO"</span><span class="p">,</span><span class="nt">"fields"</span><span class="p">:{</span><span class="nt">"message"</span><span class="p">:</span><span class="s2">"shutdown requested"</span><span class="p">,</span><span class="nt">"signal"</span><span class="p">:</span><span class="s2">"SIGTERM"</span><span class="p">},</span><span class="nt">"target"</span><span class="p">:</span><span class="s2">"workdup"</span><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="envelope">Envelope<a class="headerlink" href="#envelope" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>timestamp</code></td>
+<td>UTC, RFC 3339 with microseconds</td>
+</tr>
+<tr>
+<td><code>level</code></td>
+<td><code>TRACE</code>, <code>DEBUG</code>, <code>INFO</code>, <code>WARN</code> or <code>ERROR</code></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>Emitting module, e.g. <code>workdup::scanner</code></td>
+</tr>
+<tr>
+<td><code>fields.message</code></td>
+<td>The human-readable text</td>
+</tr>
+<tr>
+<td><code>fields.*</code></td>
+<td>Structured fields attached to that specific event</td>
+</tr>
+<tr>
+<td><code>span</code></td>
+<td>The innermost active span, when the event is inside one</td>
+</tr>
+<tr>
+<td><code>spans</code></td>
+<td>Every active span, outermost first</td>
+</tr>
+</tbody>
+</table>
+<p>Structured fields sit <strong>inside</strong> <code>fields</code>, alongside <code>message</code> — not at the top level. A
+query for the drop line is <code>.fields.message</code> and <code>.fields.workflow_id</code>, not <code>.workflow_id</code>.</p>
+<h2 id="spans">Spans<a class="headerlink" href="#spans" title="Permanent link">¶</a></h2>
+<p>Scanner and cleanup work runs inside a span carrying the namespace:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>span:  {"ns":"orders-prod","name":"scanner"}
+</span></code></pre></div>
+<p>Both worker types use the span name <code>scanner</code>, so filtering on the span name alone will not
+separate scanner lines from cleanup lines. Use <code>target</code> for that — <code>workdup::scanner</code> versus
+<code>workdup::cleanup</code>.</p>
+<p>Lines emitted before a worker enters its span have no <code>span</code> key at all. <code>worker exited with
+error</code> is the important case: a worker that fails to connect dies before the span is entered,
+so that line carries no namespace. Its <code>worker</code> field says <code>scanner</code> or <code>cleanup</code>, but which
+namespace failed is not in the line.</p>
+<h2 id="rust_log"><code>RUST_LOG</code><a class="headerlink" href="#rust_log" title="Permanent link">¶</a></h2>
+<p>Standard <code>tracing</code> filter syntax. Unset or unparseable falls back to <code>info</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>info
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">RUST_LOG</span><span class="o">=</span>warn,workdup<span class="o">=</span>debug<span class="w">          </span><span class="c1"># debug for the app, warn for dependencies</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">RUST_LOG</span><span class="o">=</span>workdup::scanner<span class="o">=</span>debug<span class="w">      </span><span class="c1"># one module</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nv">RUST_LOG</span><span class="o">=</span>workdup::cleanup<span class="o">=</span>trace
+</span></code></pre></div>
+<p><code>debug</code> adds per-workflow history fetching from <code>workdup::temporal</code>, one line per page. On a
+large namespace that is a lot of output.</p>
+<h2 id="lines-worth-knowing">Lines worth knowing<a class="headerlink" href="#lines-worth-knowing" title="Permanent link">¶</a></h2>
+<h3 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Message</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INFO</td>
+<td><code>binding http to "0.0.0.0:8000"</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>http server listening on 0.0.0.0:8000</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>shutdown requested</code></td>
+<td><code>signal</code></td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>all workers stopped</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ERROR</td>
+<td><code>worker exited with error</code></td>
+<td><code>worker</code>, <code>error</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>worker exited with error</code> is the one to alert on. That thread does not come back, and the
+process keeps serving HTTP without it — see <a href="../cli/#workdup-run">CLI reference</a>.</p>
+<h3 id="scanner">Scanner<a class="headerlink" href="#scanner" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Message</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INFO</td>
+<td><code>Start scannig</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>scanned</code></td>
+<td><code>workflow_id</code>, <code>wf_type</code></td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>workflow updated in db</code></td>
+<td><code>workflow_id</code>, <code>affected</code></td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>cancellation requested - stopping scanning at safe point</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>scanner stopping</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ERROR</td>
+<td><code>scan tick failed</code></td>
+<td><code>error</code></td>
+</tr>
+<tr>
+<td>ERROR</td>
+<td><code>skipping workflow because semantic hash would be incomplete</code></td>
+<td><code>workflow_id</code>, <code>run_id</code>, <code>error</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Message</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INFO</td>
+<td><code>Start clean database</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>cleanup: removed completed workflow in temporal</code></td>
+<td><code>workflow_id</code>, <code>status</code></td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>cleanup: not found in temporal, removed state record</code></td>
+<td><code>workflow_id</code>, <code>status</code></td>
+</tr>
+<tr>
+<td>INFO</td>
+<td><code>cleanup stopping</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>WARN</td>
+<td><code>temporal unavailable, retrying next tick</code></td>
+<td><code>workflow_id</code></td>
+</tr>
+<tr>
+<td>ERROR</td>
+<td><code>cleanup tick failed</code></td>
+<td><code>error</code></td>
+</tr>
+<tr>
+<td>ERROR</td>
+<td><code>unexpected gRPC status</code></td>
+<td><code>workflow_id</code>, <code>other</code>, <code>msg</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Start scannig</code> and <code>Featch history of workflow on page:</code> are spelled that way in the binary.
+Grep for them as written.</p>
+<h2 id="dropped-workflows">Dropped workflows<a class="headerlink" href="#dropped-workflows" title="Permanent link">¶</a></h2>
+<p>The line behind the <em>Workflows dropped</em> panel in <a href="../metrics/">Metrics</a>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">"level"</span><span class="p">:</span><span class="s2">"ERROR"</span><span class="p">,</span><span class="nt">"fields"</span><span class="p">:{</span><span class="nt">"message"</span><span class="p">:</span><span class="s2">"skipping workflow because semantic hash would be incomplete"</span><span class="p">,</span><span class="nt">"workflow_id"</span><span class="p">:</span><span class="s2">"order-4821"</span><span class="p">,</span><span class="nt">"run_id"</span><span class="p">:</span><span class="s2">"0198f2c1-6a3e-7b21-9d4f-1c2e5a8b3f60"</span><span class="p">,</span><span class="nt">"error"</span><span class="p">:</span><span class="s2">"Undefined type while trying to make hash string: &lt;EventType&gt;"</span><span class="p">},</span><span class="nt">"target"</span><span class="p">:</span><span class="s2">"workdup::scanner"</span><span class="p">}</span>
+</span></code></pre></div>
+<p>Every increment of <code>workflows_dropped_total</code> emits one of these. The <code>error</code> field names the
+Temporal event type the tokenizer does not handle; the workflow is skipped and is therefore
+absent from <code>/unique-workflows</code>, so replay coverage has a gap until a rule for that event type
+is added to <a href="https://github.com/agoalofalife/workdup/blob/main/src/tokenizer.rs"><code>tokenizer.rs</code></a>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># every drop, with the unhandled event type</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'select(.fields.message | startswith("skipping workflow")) | .fields.error'</span><span class="w"> </span>&lt;<span class="w"> </span>workdup.log<span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span><span class="p">|</span><span class="w"> </span>uniq<span class="w"> </span>-c
+</span></code></pre></div>
+<h2 id="startup-failures">Startup failures<a class="headerlink" href="#startup-failures" title="Permanent link">¶</a></h2>
+<p>These go to stderr as a plain <code>Error:</code> line, not JSON, because they happen before or outside
+the tracing setup:</p>
+<table>
+<thead>
+<tr>
+<th>Output</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Error: read config workdup.toml</code></td>
+<td>No config file at that path</td>
+</tr>
+<tr>
+<td><code>Error: env var FOO was not defined in config</code></td>
+<td>A <code>${FOO}</code> reference with nothing to expand</td>
+</tr>
+<tr>
+<td><code>Error: parse config</code></td>
+<td>Malformed or unknown key — see <a href="../configuration/#unknown-keys-are-rejected">Configuration</a></td>
+</tr>
+<tr>
+<td><code>Error: Address already in use (os error 48)</code></td>
+<td><code>[http].port</code> or <code>[http].temporal_metrics_port</code> is taken</td>
+</tr>
+</tbody>
+</table>
 
 
 
