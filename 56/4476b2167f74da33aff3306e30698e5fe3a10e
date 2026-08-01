@@ -1,0 +1,19 @@
+docs/index.md
+  s_ac96dbb4e33553::t_fbf40fe234129d 5-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "564476b2167f74da33aff3306e30698e5fe3a10e",
+  "prompts": {},
+  "sessions": {
+    "s_ac96dbb4e33553": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f5fa89b-0746-4934-9b8e-5532f28ba410",
+        "model": "claude-opus-5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
