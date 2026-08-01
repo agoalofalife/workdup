@@ -1,0 +1,31 @@
+/* workdup documentation — small, deliberate overrides only.
+   Anything more than this belongs in a theme discussion, not a stylesheet. */
+
+/* The page-action row carries four buttons (edit, view raw, Ask Claude,
+   Ask ChatGPT). Give them a little breathing room so they do not read as one
+   smudge in the corner. */
+.md-content__button {
+  margin-left: 0.4rem;
+}
+
+/* Metric and parameter tables are the backbone of this site. Stop long
+   identifiers like `history_fetch_duration_seconds` from wrapping mid-word. */
+.md-typeset table:not([class]) td code,
+.md-typeset table:not([class]) th code {
+  white-space: nowrap;
+}
+
+/* Tables in the reference pages are wide; let them use the full column. */
+.md-typeset__table {
+  width: 100%;
+}
+.md-typeset__table table:not([class]) {
+  display: table;
+  width: 100%;
+}
+
+/* PromQL blocks are read far more often than they are copied. Slightly tighter
+   line height keeps a four-line alert expression scannable as one unit. */
+.md-typeset .highlight.language-promql pre > code {
+  line-height: 1.4;
+}

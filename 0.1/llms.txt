@@ -1,0 +1,25 @@
+# workdup
+
+> Temporal workflow history deduplication for replay-test optimization
+
+workdup maintains a live, deduplicated set of Temporal workflows (by semantic hash) so CI/QA can replay a minimal covering set instead of every history.
+
+## Getting started
+
+- [Overview](https://agoalofalife.github.io/workdup/0.1/index.md)
+- [Installation](https://agoalofalife.github.io/workdup/0.1/installation/index.md)
+- [How to use](https://agoalofalife.github.io/workdup/0.1/usage/index.md)
+
+## Reference
+
+- [CLI reference](https://agoalofalife.github.io/workdup/0.1/cli/index.md)
+- [Configuration](https://agoalofalife.github.io/workdup/0.1/configuration/index.md)
+- [Environment variables](https://agoalofalife.github.io/workdup/0.1/environment-variables/index.md)
+- [HTTP endpoints](https://agoalofalife.github.io/workdup/0.1/http-endpoints/index.md)
+
+## Operations
+
+- [How it works](https://agoalofalife.github.io/workdup/0.1/how-it-works/index.md)
+- [Metrics](https://agoalofalife.github.io/workdup/0.1/metrics/index.md)
+- [Logs](https://agoalofalife.github.io/workdup/0.1/logs/index.md)
+
