@@ -453,6 +453,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environment variables
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -469,6 +487,86 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Runtime">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-underscore-or-two" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One underscore or two
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rust_log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RUST_LOG
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .env
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installer
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -602,6 +700,75 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Runtime">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-underscore-or-two" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One underscore or two
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rust_log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RUST_LOG
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .env
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installer
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -645,11 +812,110 @@
 
 <h1 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">¶</a></h1>
 <p>Every variable the binary reads, plus the installer-only ones.</p>
-<div class="admonition warning">
-<p class="admonition-title">Placeholder</p>
-<p>This page has not been written yet. It lands in <strong>Step 5</strong> of the documentation
-rollout — see <code>spec/documentation.md</code>.</p>
-</div>
+<h2 id="runtime">Runtime<a class="headerlink" href="#runtime" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Read by</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WORKDUP_CONFIG</code></td>
+<td>CLI</td>
+<td><code>workdup.toml</code></td>
+<td>Config file path. <code>--config</code> overrides it</td>
+</tr>
+<tr>
+<td><code>RUST_LOG</code></td>
+<td>Logging</td>
+<td><code>info</code></td>
+<td>Tracing filter. Invalid syntax falls back to <code>info</code></td>
+</tr>
+<tr>
+<td><code>WORKDUP__&lt;SECTION&gt;__&lt;KEY&gt;</code></td>
+<td>Config</td>
+<td>—</td>
+<td>Overrides one config value, e.g. <code>WORKDUP__HTTP__PORT=8080</code></td>
+</tr>
+<tr>
+<td>Anything named in the config</td>
+<td>Config</td>
+<td>—</td>
+<td>Every <code>${VAR}</code> in <code>workdup.toml</code> must be set, or startup fails</td>
+</tr>
+</tbody>
+</table>
+<h3 id="one-underscore-or-two">One underscore or two<a class="headerlink" href="#one-underscore-or-two" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Form</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WORKDUP_CONFIG</code></td>
+<td>Single underscore. A CLI flag fallback — which file to read</td>
+</tr>
+<tr>
+<td><code>WORKDUP__HTTP__PORT</code></td>
+<td>Double underscore. A config overlay — what a value inside the file becomes</td>
+</tr>
+</tbody>
+</table>
+<p>They are separate mechanisms. <code>WORKDUP__CONFIG</code> is not a valid override and is rejected as an
+unknown field.</p>
+<h3 id="rust_log"><code>RUST_LOG</code><a class="headerlink" href="#rust_log" title="Permanent link">¶</a></h3>
+<p>Standard <code>tracing</code> filter syntax:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">RUST_LOG</span><span class="o">=</span>info<span class="w">                              </span><span class="c1"># everything at info and above</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">RUST_LOG</span><span class="o">=</span>warn,workdup<span class="o">=</span>debug<span class="w">                </span><span class="c1"># debug for the app, warn for dependencies</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">RUST_LOG</span><span class="o">=</span>workdup::scanner<span class="o">=</span>trace<span class="w">            </span><span class="c1"># one module</span>
+</span></code></pre></div>
+<p>Output is JSON on stdout. See <a href="../logs/">Logs</a>.</p>
+<h2 id="env"><code>.env</code><a class="headerlink" href="#env" title="Permanent link">¶</a></h2>
+<p>If a <code>.env</code> file exists in the working directory it is loaded at startup, before logging is
+initialised and before the config is read. Variables already present in the real environment
+are <strong>not</strong> overwritten, so <code>.env</code> acts as a default layer:</p>
+<div class="language-ini highlight"><span class="filename">.env</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="na">RUST_LOG</span><span class="o">=</span><span class="s">info</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="na">TEMPORAL_TLS_CLIENT_CERT_PATH</span><span class="o">=</span><span class="s">/secrets/tls.crt</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="na">TEMPORAL_TLS_CLIENT_KEY_PATH</span><span class="o">=</span><span class="s">/secrets/tls.key</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="na">TENANT_A_API_KEY</span><span class="o">=</span><span class="s">...</span>
+</span></code></pre></div>
+<p><code>.env</code> and <code>*.pem</code> are gitignored in this repository. Keep them out of images and ConfigMaps —
+they are the secret half of the split described in <a href="../configuration/">Configuration</a>.</p>
+<h2 id="installer">Installer<a class="headerlink" href="#installer" title="Permanent link">¶</a></h2>
+<p>Read by <a href="../installation/#install-script"><code>install.sh</code></a> only. The binary never sees them.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WORKDUP_VERSION</code></td>
+<td><code>latest</code></td>
+<td>Tag to install, e.g. <code>v0.2.0</code></td>
+</tr>
+<tr>
+<td><code>WORKDUP_INSTALL_DIR</code></td>
+<td><code>/usr/local/bin</code></td>
+<td>Destination directory</td>
+</tr>
+<tr>
+<td><code>WORKDUP_REPO</code></td>
+<td><code>agoalofalife/workdup</code></td>
+<td>Source repository, for forks and mirrors</td>
+</tr>
+</tbody>
+</table>
 
 
 

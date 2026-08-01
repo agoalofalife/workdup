@@ -480,6 +480,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP endpoints
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -496,6 +514,91 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#get-unique-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /unique-workflows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /stats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-healthz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /healthz
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-readyz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /readyz
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -602,6 +705,80 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#get-unique-workflows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /unique-workflows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /stats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-healthz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /healthz
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-readyz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /readyz
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -645,11 +822,154 @@
 
 <h1 id="http-endpoints">HTTP endpoints<a class="headerlink" href="#http-endpoints" title="Permanent link">¶</a></h1>
 <p>All five routes, with parameters, status codes and real response bodies.</p>
-<div class="admonition warning">
-<p class="admonition-title">Placeholder</p>
-<p>This page has not been written yet. It lands in <strong>Step 5</strong> of the documentation
-rollout — see <code>spec/documentation.md</code>.</p>
-</div>
+<p>Everything below is served by one axum server on <code>[http].port</code> (default <code>8000</code>), bound to
+<code>0.0.0.0</code>. There is no authentication and no TLS — do not expose it outside your network.</p>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Method</th>
+<th>Query</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/healthz</code></td>
+<td>GET</td>
+<td>—</td>
+<td><code>ok</code></td>
+</tr>
+<tr>
+<td><code>/readyz</code></td>
+<td>GET</td>
+<td>—</td>
+<td>Empty body, or the failure reason</td>
+</tr>
+<tr>
+<td><code>/unique-workflows</code></td>
+<td>GET</td>
+<td><code>namespace</code> (required)</td>
+<td>JSON array of workflows</td>
+</tr>
+<tr>
+<td><code>/stats</code></td>
+<td>GET</td>
+<td><code>namespace</code> (required)</td>
+<td>JSON array with one object</td>
+</tr>
+<tr>
+<td><code>/metrics</code></td>
+<td>GET</td>
+<td>—</td>
+<td>Prometheus text format</td>
+</tr>
+</tbody>
+</table>
+<h2 id="get-unique-workflows"><code>GET /unique-workflows</code><a class="headerlink" href="#get-unique-workflows" title="Permanent link">¶</a></h2>
+<p>The deduplicated covering set for one namespace — one workflow per distinct semantic hash.
+This is the endpoint a replay suite consumes.</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>curl<span class="w"> </span><span class="s1">'localhost:8000/unique-workflows?namespace=demo'</span>
+</span></code></pre></div>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">[</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p">{</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">"workflow_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"refund-118"</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">"run_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0198f2c2-8c50-7d43-9f61-3e4a7c0d5b82"</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">"workflow_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RefundSaga"</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p">{</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">"workflow_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"order-4821"</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">"run_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0198f2c1-6a3e-7b21-9d4f-1c2e5a8b3f60"</span><span class="p">,</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">"workflow_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrderFulfillment"</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">]</span>
+</span></code></pre></div>
+<p>Order is not specified — it is whatever SQLite returns for a <code>GROUP BY semantic_hash</code>. Treat
+the result as a set.</p>
+<h2 id="get-stats"><code>GET /stats</code><a class="headerlink" href="#get-stats" title="Permanent link">¶</a></h2>
+<p>Row counts for one namespace.</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp">$ </span>curl<span class="w"> </span><span class="s1">'localhost:8000/stats?namespace=demo'</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">[{"workflows_count":3,"unique_workflows_count":2}]</span>
+</span></code></pre></div>
+<p>It returns an <strong>array containing exactly one object</strong>, not a bare object — index <code>[0]</code>, or
+<code>jq '.[0]'</code>. An unknown namespace returns the same shape with zeros rather than an empty
+array:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gp">$ </span>curl<span class="w"> </span><span class="s1">'localhost:8000/stats?namespace=nope'</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="go">[{"workflows_count":0,"unique_workflows_count":0}]</span>
+</span></code></pre></div>
+<h2 id="get-healthz"><code>GET /healthz</code><a class="headerlink" href="#get-healthz" title="Permanent link">¶</a></h2>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp">$ </span>curl<span class="w"> </span>localhost:8000/healthz
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">ok</span>
+</span></code></pre></div>
+<p>A static response. It proves the HTTP server is accepting connections and nothing else — in
+particular it stays <code>200</code> when every scanner and cleanup worker has died. Use it as a
+liveness probe, and alert on the scanner metrics for actual progress.</p>
+<h2 id="get-readyz"><code>GET /readyz</code><a class="headerlink" href="#get-readyz" title="Permanent link">¶</a></h2>
+<p>Opens the database, runs <code>SELECT 1</code>, then opens a <strong>fresh gRPC connection to every configured
+namespace</strong>. Returns <code>200</code> with an empty body when all of that succeeds, or <code>503</code> with the
+first failure as plain text:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gp">$ </span>curl<span class="w"> </span>localhost:8000/readyz
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">not ready: Server connection error: tonic::transport::Error(Transport, ConnectError(</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">ConnectError("tcp connect error", 127.0.0.1:7233, Os { code: 61, kind: ConnectionRefused,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="go">message: "Connection refused" })))</span>
+</span></code></pre></div>
+<h2 id="get-metrics"><code>GET /metrics</code><a class="headerlink" href="#get-metrics" title="Permanent link">¶</a></h2>
+<p>Prometheus text format: application metrics recorded by the code, plus <code>process_*</code> collected
+on each scrape.</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="gp">$ </span>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-6
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="gp"># </span>HELP<span class="w"> </span>process_cpu_seconds_total<span class="w"> </span>Total<span class="w"> </span>user<span class="w"> </span>and<span class="w"> </span>system<span class="w"> </span>CPU<span class="w"> </span><span class="nb">time</span><span class="w"> </span>spent<span class="w"> </span><span class="k">in</span><span class="w"> </span>seconds.
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="gp"># </span>TYPE<span class="w"> </span>process_cpu_seconds_total<span class="w"> </span>counter
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="go">process_cpu_seconds_total 0</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="gp"># </span>TYPE<span class="w"> </span>http_requests_total<span class="w"> </span>counter
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="go">http_requests_total{route="/healthz",method="GET",status="200"} 1</span>
+</span></code></pre></div>
+<p>Temporal SDK gRPC-client metrics are <strong>not</strong> here. They are on a second port,
+<code>[http].temporal_metrics_port</code> (default <code>9000</code>), served by the SDK's own exporter. That
+endpoint responds <code>200</code> with an empty body until the SDK has made its first call. See
+<a href="../metrics/">Metrics</a>.</p>
+<p>Every request through the router is counted, so the RED panels cover all five routes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>http_requests_total{route, method, status}
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>http_request_duration_seconds{route}
+</span></code></pre></div>
+<h2 id="status-codes">Status codes<a class="headerlink" href="#status-codes" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>200</code></td>
+<td>JSON, or text for <code>/healthz</code> and <code>/metrics</code></td>
+<td>Success</td>
+</tr>
+<tr>
+<td><code>400</code></td>
+<td><code>Failed to deserialize query string: missing field \</code>namespace`<code>| The</code>namespace` query parameter is absent</td>
+<td></td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>Empty</td>
+<td>No such route</td>
+</tr>
+<tr>
+<td><code>500</code></td>
+<td><code>error: &lt;message&gt;</code>, plain text</td>
+<td>A database error. The body is the internal error string, not JSON</td>
+</tr>
+<tr>
+<td><code>503</code></td>
+<td><code>not ready: &lt;message&gt;</code>, plain text</td>
+<td><code>/readyz</code> only</td>
+</tr>
+</tbody>
+</table>
+<p>Error bodies are plain text even on the JSON endpoints — check the status code before parsing.</p>
 
 
 

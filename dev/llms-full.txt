@@ -281,25 +281,325 @@ workdup --config /app/workdup.toml run
 
 The `workdup.toml` file: sections, parameters, overrides and secrets.
 
-Placeholder
+The file is not secret. It declares structure — namespaces, hosts, intervals, and the *locations* of credentials. Certificates are referenced by path; tokens are referenced by environment variable. Neither is ever stored in the file, so it can be committed or shipped as a Kubernetes ConfigMap.
 
-This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+## Where the file comes from
+
+| Source                                   | Precedence |
+| ---------------------------------------- | ---------- |
+| `--config <PATH>`                        | Highest    |
+| `WORKDUP_CONFIG` in the real environment |            |
+| `WORKDUP_CONFIG` in a `.env` file        |            |
+| `./workdup.toml`                         | Default    |
+
+A relative path resolves against the current working directory — see [Installation](https://agoalofalife.github.io/workdup/dev/installation/#working-directory-matters).
+
+## Load order
+
+```text
+TOML file  →  ${VAR} expansion  →  WORKDUP__* environment overrides
+```
+
+`${VAR}` expansion happens on the raw file text, before it is parsed as TOML. Environment overrides are merged after parsing and win over the file.
+
+## Example
+
+The file below is [`wd.example.toml`](https://github.com/agoalofalife/workdup/blob/main/wd.example.toml) from the repository, included verbatim:
+
+wd.example.toml
+
+```toml
+[defaults]
+scan_interval    = "1h"                              # how often scan temporal cluster for new updates
+cleanup_interval = "1d"                              # how often clean outdated workflow in storage
+query            = "ExecutionStatus = 'Running'"     # query for get deduplication workflow
+
+[http]
+port = 8000
+temporal_metrics_port = 9000
+
+[[namespaces]]
+name = "namespace-1"
+host = "host.cloud:7233"
+tls  = { cert_path = "${TEMPORAL_TLS_CLIENT_CERT_PATH}", key_path = "${TEMPORAL_TLS_CLIENT_KEY_PATH}" }
+
+[[namespaces]]
+name = "namespace-2"
+host = "host.cloud:7233"
+scan_interval = "10m"                               # we can redefine individual setting for namespace
+tls  = { cert_path = "${TEMPORAL_TLS_CLIENT_CERT_PATH}", key_path = "${TEMPORAL_TLS_CLIENT_KEY_PATH}" }
+```
+
+## `[defaults]`
+
+Base values for every namespace. Each one can be overridden inside an individual `[[namespaces]]` entry.
+
+| Key                | Type     | Default                       | Description                                            |
+| ------------------ | -------- | ----------------------------- | ------------------------------------------------------ |
+| `scan_interval`    | duration | `1h`                          | How often the scanner ticks                            |
+| `cleanup_interval` | duration | `1d`                          | How often stale rows are removed                       |
+| `query`            | string   | `ExecutionStatus = 'Running'` | Temporal List filter selecting which workflows to scan |
+
+## `[http]`
+
+One HTTP server per process; these are not overridable per namespace.
+
+| Key                     | Type | Default | Description                                              |
+| ----------------------- | ---- | ------- | -------------------------------------------------------- |
+| `port`                  | u16  | `8000`  | REST API and application `/metrics`                      |
+| `temporal_metrics_port` | u16  | `9000`  | Prometheus exporter for Temporal SDK gRPC-client metrics |
+
+The two ports serve different metric sets from different servers. Application metrics (`scan_*`, `db_*`, `http_*`) are rendered by the API server on `port`; the Temporal SDK starts its own exporter on `temporal_metrics_port`. Both are always enabled. See [Metrics](https://agoalofalife.github.io/workdup/dev/metrics/index.md).
+
+## `[[namespaces]]`
+
+One entry per Temporal namespace.
+
+| Key                | Type     | Required | Description                                    |
+| ------------------ | -------- | -------- | ---------------------------------------------- |
+| `name`             | string   | yes      | Temporal namespace name                        |
+| `host`             | string   | yes      | Frontend address, `host:port` or a full URL    |
+| `api_key`          | string   | no       | Temporal Cloud API key. Enables TLS on its own |
+| `tls.cert_path`    | path     | no¹      | Client certificate (mTLS)                      |
+| `tls.key_path`     | path     | no¹      | Private key                                    |
+| `tls.ca_path`      | path     | no       | CA certificate, if not in the system store     |
+| `scan_interval`    | duration | no       | Overrides `[defaults].scan_interval`           |
+| `cleanup_interval` | duration | no       | Overrides `[defaults].cleanup_interval`        |
+| `query`            | string   | no       | Overrides `[defaults].query`                   |
+
+¹ Required together for Temporal Cloud with mTLS. Omit the whole `tls` block for a local dev server without TLS.
+
+TLS is enabled when either `tls` or `api_key` is present. When `host` has no scheme, `https://` is prepended if TLS is on and `http://` otherwise.
+
+Durations use `humantime` syntax: `30s`, `10m`, `1h`, `1d`. An unparseable value is a startup error, not a fallback.
+
+## Referencing environment variables
+
+Any string value may contain `${VAR}`, expanded from the environment at load time:
+
+```toml
+[[namespaces]]
+name    = "tenant-a"
+host    = "tenant-a.acme.tmprl.cloud:7233"
+api_key = "${TENANT_A_API_KEY}"
+tls     = { cert_path = "${SECRETS_DIR}/tls.crt", key_path = "${SECRETS_DIR}/tls.key" }
+```
+
+Expansion is strict. An unset variable aborts startup naming the variable — it never substitutes an empty string:
+
+```console
+$ workdup --config workdup.toml validate
+Error: env var TENANT_A_API_KEY was not defined in config
+```
+
+Because expansion runs over the whole file before TOML parsing, a literal `$` anywhere in the file is treated as the start of a reference.
+
+## Overriding from the environment
+
+Any scalar can be overridden with a `WORKDUP__` variable, using `__` as the section separator:
+
+```bash
+WORKDUP__HTTP__PORT=8080 workdup run
+```
+
+Note the double underscore. `WORKDUP_CONFIG` uses a single underscore and is a different mechanism — a CLI flag fallback, not a config overlay. This overlay suits scalars in `[defaults]` and `[http]`; the `[[namespaces]]` array is better expressed in the file with `${VAR}` references for its secrets.
+
+## Unknown keys are rejected
+
+Every config struct sets `deny_unknown_fields`, so a typo fails at startup instead of being silently ignored. This applies to the file:
+
+```console
+$ workdup --config workdup.toml validate
+Error: parse config
+
+Caused by:
+    unknown field: found `bogus`, expected ``port` or `temporal_metrics_port`` for key "default.http.bogus" in TOML source string
+```
+
+and to the environment overlay:
+
+```console
+$ WORKDUP__NONSENSE=1 workdup validate
+Error: parse config
+
+Caused by:
+    unknown field: found `nonsense`, expected `one of `defaults`, `http`, `namespaces`` for key "NONSENSE" in `WORKDUP__` environment variable(s)
+```
+
+The message lists the keys that were expected, which is what makes a misspelling self-diagnosing.
+
+## Checking a file
+
+[`workdup validate`](https://agoalofalife.github.io/workdup/dev/cli/#workdup-validate) loads the config, applies everything above, and verifies that at least one namespace exists, that no name is duplicated, that no host is empty, and that every TLS path is a real file. It does not connect to Temporal and does not touch the database.
 
 # Environment variables
 
 Every variable the binary reads, plus the installer-only ones.
 
-Placeholder
+## Runtime
 
-This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+| Variable                     | Read by | Default        | Purpose                                                        |
+| ---------------------------- | ------- | -------------- | -------------------------------------------------------------- |
+| `WORKDUP_CONFIG`             | CLI     | `workdup.toml` | Config file path. `--config` overrides it                      |
+| `RUST_LOG`                   | Logging | `info`         | Tracing filter. Invalid syntax falls back to `info`            |
+| `WORKDUP__<SECTION>__<KEY>`  | Config  | —              | Overrides one config value, e.g. `WORKDUP__HTTP__PORT=8080`    |
+| Anything named in the config | Config  | —              | Every `${VAR}` in `workdup.toml` must be set, or startup fails |
+
+### One underscore or two
+
+| Form                  | Meaning                                                                    |
+| --------------------- | -------------------------------------------------------------------------- |
+| `WORKDUP_CONFIG`      | Single underscore. A CLI flag fallback — which file to read                |
+| `WORKDUP__HTTP__PORT` | Double underscore. A config overlay — what a value inside the file becomes |
+
+They are separate mechanisms. `WORKDUP__CONFIG` is not a valid override and is rejected as an unknown field.
+
+### `RUST_LOG`
+
+Standard `tracing` filter syntax:
+
+```bash
+RUST_LOG=info                              # everything at info and above
+RUST_LOG=warn,workdup=debug                # debug for the app, warn for dependencies
+RUST_LOG=workdup::scanner=trace            # one module
+```
+
+Output is JSON on stdout. See [Logs](https://agoalofalife.github.io/workdup/dev/logs/index.md).
+
+## `.env`
+
+If a `.env` file exists in the working directory it is loaded at startup, before logging is initialised and before the config is read. Variables already present in the real environment are **not** overwritten, so `.env` acts as a default layer:
+
+.env
+
+```ini
+RUST_LOG=info
+TEMPORAL_TLS_CLIENT_CERT_PATH=/secrets/tls.crt
+TEMPORAL_TLS_CLIENT_KEY_PATH=/secrets/tls.key
+TENANT_A_API_KEY=...
+```
+
+`.env` and `*.pem` are gitignored in this repository. Keep them out of images and ConfigMaps — they are the secret half of the split described in [Configuration](https://agoalofalife.github.io/workdup/dev/configuration/index.md).
+
+## Installer
+
+Read by [`install.sh`](https://agoalofalife.github.io/workdup/dev/installation/#install-script) only. The binary never sees them.
+
+| Variable              | Default                | Purpose                                  |
+| --------------------- | ---------------------- | ---------------------------------------- |
+| `WORKDUP_VERSION`     | `latest`               | Tag to install, e.g. `v0.2.0`            |
+| `WORKDUP_INSTALL_DIR` | `/usr/local/bin`       | Destination directory                    |
+| `WORKDUP_REPO`        | `agoalofalife/workdup` | Source repository, for forks and mirrors |
 
 # HTTP endpoints
 
 All five routes, with parameters, status codes and real response bodies.
 
-Placeholder
+Everything below is served by one axum server on `[http].port` (default `8000`), bound to `0.0.0.0`. There is no authentication and no TLS — do not expose it outside your network.
 
-This page has not been written yet. It lands in **Step 5** of the documentation rollout — see `spec/documentation.md`.
+| Route               | Method | Query                  | Returns                           |
+| ------------------- | ------ | ---------------------- | --------------------------------- |
+| `/healthz`          | GET    | —                      | `ok`                              |
+| `/readyz`           | GET    | —                      | Empty body, or the failure reason |
+| `/unique-workflows` | GET    | `namespace` (required) | JSON array of workflows           |
+| `/stats`            | GET    | `namespace` (required) | JSON array with one object        |
+| `/metrics`          | GET    | —                      | Prometheus text format            |
+
+## `GET /unique-workflows`
+
+The deduplicated covering set for one namespace — one workflow per distinct semantic hash. This is the endpoint a replay suite consumes.
+
+```console
+$ curl 'localhost:8000/unique-workflows?namespace=demo'
+```
+
+```json
+[
+  {
+    "workflow_id": "refund-118",
+    "run_id": "0198f2c2-8c50-7d43-9f61-3e4a7c0d5b82",
+    "workflow_type": "RefundSaga"
+  },
+  {
+    "workflow_id": "order-4821",
+    "run_id": "0198f2c1-6a3e-7b21-9d4f-1c2e5a8b3f60",
+    "workflow_type": "OrderFulfillment"
+  }
+]
+```
+
+Order is not specified — it is whatever SQLite returns for a `GROUP BY semantic_hash`. Treat the result as a set.
+
+## `GET /stats`
+
+Row counts for one namespace.
+
+```console
+$ curl 'localhost:8000/stats?namespace=demo'
+[{"workflows_count":3,"unique_workflows_count":2}]
+```
+
+It returns an **array containing exactly one object**, not a bare object — index `[0]`, or `jq '.[0]'`. An unknown namespace returns the same shape with zeros rather than an empty array:
+
+```console
+$ curl 'localhost:8000/stats?namespace=nope'
+[{"workflows_count":0,"unique_workflows_count":0}]
+```
+
+## `GET /healthz`
+
+```console
+$ curl localhost:8000/healthz
+ok
+```
+
+A static response. It proves the HTTP server is accepting connections and nothing else — in particular it stays `200` when every scanner and cleanup worker has died. Use it as a liveness probe, and alert on the scanner metrics for actual progress.
+
+## `GET /readyz`
+
+Opens the database, runs `SELECT 1`, then opens a **fresh gRPC connection to every configured namespace**. Returns `200` with an empty body when all of that succeeds, or `503` with the first failure as plain text:
+
+```console
+$ curl localhost:8000/readyz
+not ready: Server connection error: tonic::transport::Error(Transport, ConnectError(
+ConnectError("tcp connect error", 127.0.0.1:7233, Os { code: 61, kind: ConnectionRefused,
+message: "Connection refused" })))
+```
+
+## `GET /metrics`
+
+Prometheus text format: application metrics recorded by the code, plus `process_*` collected on each scrape.
+
+```console
+$ curl -s localhost:8000/metrics | head -6
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 0
+
+# TYPE http_requests_total counter
+http_requests_total{route="/healthz",method="GET",status="200"} 1
+```
+
+Temporal SDK gRPC-client metrics are **not** here. They are on a second port, `[http].temporal_metrics_port` (default `9000`), served by the SDK's own exporter. That endpoint responds `200` with an empty body until the SDK has made its first call. See [Metrics](https://agoalofalife.github.io/workdup/dev/metrics/index.md).
+
+Every request through the router is counted, so the RED panels cover all five routes:
+
+```text
+http_requests_total{route, method, status}
+http_request_duration_seconds{route}
+```
+
+## Status codes
+
+| Code  | Body                                                               | When                                                              |
+| ----- | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `200` | JSON, or text for `/healthz` and `/metrics`                        | Success                                                           |
+| `400` | `Failed to deserialize query string: missing field \`namespace\`\` | The`namespace` query parameter is absent                          |
+| `404` | Empty                                                              | No such route                                                     |
+| `500` | `error: <message>`, plain text                                     | A database error. The body is the internal error string, not JSON |
+| `503` | `not ready: <message>`, plain text                                 | `/readyz` only                                                    |
+
+Error bodies are plain text even on the JSON endpoints — check the status code before parsing.
 # Operations
 
 # How it works
