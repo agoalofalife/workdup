@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_ac96dbb4e33553::t_9b6c1b34e47dd9 3-8,12,21-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "0228d0d94cba298e9f67778df02a6df8957ebf0b",
+  "prompts": {},
+  "sessions": {
+    "s_ac96dbb4e33553": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f5fa89b-0746-4934-9b8e-5532f28ba410",
+        "model": "claude-opus-5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
