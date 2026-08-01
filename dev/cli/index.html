@@ -399,6 +399,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -415,6 +433,69 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workdup-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workdup validate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workdup-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workdup run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-a-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In a container
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -602,6 +683,58 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#global-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workdup-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workdup validate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workdup-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        workdup run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-a-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In a container
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -645,11 +778,83 @@
 
 <h1 id="cli-reference">CLI reference<a class="headerlink" href="#cli-reference" title="Permanent link">¶</a></h1>
 <p>Every command, argument and flag, with its environment fallback.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>workdup [--config &lt;PATH&gt;] &lt;COMMAND&gt;
+</span></code></pre></div>
+<p>Two commands: <code>run</code> starts the daemon, <code>validate</code> checks the config and exits. Both read the
+same config file and both resolve paths relative to the <strong>current working directory</strong> — see
+<a href="../installation/#working-directory-matters">Installation</a>.</p>
+<h2 id="global-options">Global options<a class="headerlink" href="#global-options" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Environment fallback</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--config &lt;PATH&gt;</code></td>
+<td><code>WORKDUP_CONFIG</code></td>
+<td><code>workdup.toml</code></td>
+<td>Path to the config file. A relative path resolves against the working directory</td>
+</tr>
+<tr>
+<td><code>-h</code>, <code>--help</code></td>
+<td>—</td>
+<td>—</td>
+<td>Print help. Works on the subcommands too: <code>workdup help run</code></td>
+</tr>
+<tr>
+<td><code>-V</code>, <code>--version</code></td>
+<td>—</td>
+<td>—</td>
+<td>Print <code>workdup &lt;version&gt;</code> and exit</td>
+</tr>
+</tbody>
+</table>
+<p>Precedence for the config path, highest first: <code>--config</code>, then <code>WORKDUP_CONFIG</code> from the real
+environment, then <code>WORKDUP_CONFIG</code> from a <code>.env</code> file, then the default.</p>
+<h2 id="workdup-validate"><code>workdup validate</code><a class="headerlink" href="#workdup-validate" title="Permanent link">¶</a></h2>
+<p>Loads the config, expands <code>${VAR}</code> references, applies any <code>WORKDUP__*</code> overrides, checks it,
+and exits.</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gp">$ </span>workdup<span class="w"> </span>--config<span class="w"> </span>workdup.toml<span class="w"> </span>validate
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">ok: 2 namespace(s)</span>
+</span></code></pre></div>
+<p>It checks four things:</p>
+<ul>
+<li>at least one namespace is defined;</li>
+<li>no namespace name appears twice;</li>
+<li>no <code>host</code> is empty;</li>
+<li>every TLS path in the config — <code>cert_path</code>, <code>key_path</code>, and <code>ca_path</code> if set — exists as a
+  real file.</li>
+</ul>
+<h2 id="workdup-run"><code>workdup run</code><a class="headerlink" href="#workdup-run" title="Permanent link">¶</a></h2>
+<p>Starts the daemon. It initialises the SQLite schema at <code>./data/workdup.db</code>, creating <code>data/</code>
+if needed, then spawns:</p>
+<ul>
+<li>one <strong>scanner</strong> thread per namespace, ticking every <code>scan_interval</code>;</li>
+<li>one <strong>cleanup</strong> thread per namespace, ticking every <code>cleanup_interval</code>;</li>
+<li>one <strong>HTTP server</strong> for the whole process, on <code>[http].port</code>;</li>
+<li>one <strong>Temporal SDK metrics exporter</strong>, on <code>[http].temporal_metrics_port</code>.</li>
+</ul>
+<p>Each worker gets its own thread and its own single-threaded Tokio runtime. The process runs
+until <code>SIGINT</code> or <code>SIGTERM</code>, then cancels a shared token, waits for every worker to finish its
+current tick, and logs <code>all workers stopped</code>. <code>SIGTERM</code> is handled explicitly so a Kubernetes
+rollout shuts down cleanly instead of being <code>SIGKILL</code>ed at the end of the grace period.</p>
 <div class="admonition warning">
-<p class="admonition-title">Placeholder</p>
-<p>This page has not been written yet. It lands in <strong>Step 5</strong> of the documentation
-rollout — see <code>spec/documentation.md</code>.</p>
+<p class="admonition-title">A worker that fails does not restart</p>
+<p>If a scanner or cleanup worker returns an error — most commonly because Temporal is
+unreachable at startup — it logs <code>worker exited with error</code> and that thread is <strong>gone for
+the lifetime of the process</strong>. The HTTP server keeps serving and <code>/healthz</code> keeps
+returning <code>200</code>, so nothing external notices that scanning has stopped. Alert on the
+scanner metrics rather than on liveness; see <a href="../metrics/">Metrics</a>.</p>
 </div>
+<h2 id="in-a-container">In a container<a class="headerlink" href="#in-a-container" title="Permanent link">¶</a></h2>
+<p>The image sets an entrypoint and a default command, so it runs with no arguments:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>workdup --config /app/workdup.toml run
+</span></code></pre></div>
 
 
 
