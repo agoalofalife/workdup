@@ -289,6 +289,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="." class="md-nav__link md-nav__link--active">
         
   
@@ -305,6 +323,80 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The idea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-you-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you get
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to go next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -600,6 +692,69 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The idea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-you-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you get
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to go next
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -643,11 +798,118 @@
 
 <h1 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">¶</a></h1>
 <p>What workdup is, the replay-cost problem it solves, and the idea in one diagram.</p>
-<div class="admonition warning">
-<p class="admonition-title">Placeholder</p>
-<p>This page has not been written yet. It lands in <strong>Step 7</strong> of the documentation
-rollout — see <code>spec/documentation.md</code>.</p>
-</div>
+<p>workdup watches your Temporal namespaces and maintains a live, deduplicated set of workflows
+— one representative per distinct <em>shape</em> of execution. Point your replay tests at that set
+instead of at every history and you cover the same code paths with a fraction of the
+downloads.</p>
+<h2 id="the-problem">The problem<a class="headerlink" href="#the-problem" title="Permanent link">¶</a></h2>
+<p>Replay testing verifies that today's workflow code can still deterministically replay
+yesterday's histories. Doing it properly means fetching histories, and that gets expensive
+for three reasons:</p>
+<ul>
+<li><strong>Volume.</strong> Downloading every history in a busy namespace moves hundreds of megabytes and
+  takes tens of minutes.</li>
+<li><strong>Duplication.</strong> Most of those histories are the same execution path with different inputs
+  and timestamps. Replaying a thousand copies of one path finds nothing a single copy
+  wouldn't.</li>
+<li><strong>Staleness.</strong> A full export is out of date the moment it finishes. Workflows start,
+  advance and complete continuously.</li>
+</ul>
+<h2 id="the-idea">The idea<a class="headerlink" href="#the-idea" title="Permanent link">¶</a></h2>
+<p>Reduce each history to a <strong>sequence of canonical tokens</strong> — the decisions the workflow code
+made, with the per-run noise stripped out — and hash that. Two workflows that took the same
+path through your code produce the same hash, however different their payloads and
+timestamps.</p>
+<pre class="mermaid"><code>flowchart LR
+    A[Temporal namespace] --&gt;|Visibility API| B[Scanner]
+    B --&gt;|changed only| C[Fetch history]
+    C --&gt; D[Normalize to tokens]
+    D --&gt; E[SHA-256]
+    E --&gt; F[(SQLite)]
+    F --&gt; G["GET /unique-workflows"]
+    G --&gt; H[Your replay suite]</code></pre>
+<p>The scanner only downloads a history when Temporal reports that the workflow's
+<code>HistoryLength</code> has changed since the last look, so a steady-state namespace costs one cheap
+list call per interval and nothing else.</p>
+<h2 id="what-you-get">What you get<a class="headerlink" href="#what-you-get" title="Permanent link">¶</a></h2>
+<p>A single binary that runs as a daemon, and an HTTP endpoint that answers "which workflows
+should I replay?":</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>curl<span class="w"> </span><span class="s1">'localhost:8000/unique-workflows?namespace=orders-prod'</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">[{"workflow_id":"order-4821","run_id":"0198f2c1-...","workflow_type":"OrderFulfillment"}]</span>
+</span></code></pre></div>
+<p>Your test suite fetches those histories with its own Temporal SDK and replays them. workdup
+never runs your tests and never needs to know what language they are written in — see
+<a href="usage/">How to use</a>.</p>
+<h2 id="terminology">Terminology<a class="headerlink" href="#terminology" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Workflow</strong></td>
+<td>One execution in Temporal: an ordered sequence of history events</td>
+</tr>
+<tr>
+<td><strong>Replay</strong></td>
+<td>Re-running a recorded history against current code to check determinism</td>
+</tr>
+<tr>
+<td><strong>Semantic hash</strong></td>
+<td>SHA-256 of a workflow's normalized token sequence</td>
+</tr>
+<tr>
+<td><strong>Canonical token</strong></td>
+<td>A short string standing for one meaningful event, e.g. <code>A:payments.charge</code></td>
+</tr>
+<tr>
+<td><strong>Visibility API</strong></td>
+<td>Temporal's metadata query API — lists workflows without downloading histories</td>
+</tr>
+<tr>
+<td><strong>Timer bucket</strong></td>
+<td>The rounded duration a timer's timeout is reduced to before hashing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>If you want to</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Install it</td>
+<td><a href="installation/">Installation</a></td>
+</tr>
+<tr>
+<td>Wire it into CI</td>
+<td><a href="usage/">How to use</a></td>
+</tr>
+<tr>
+<td>Understand the hashing</td>
+<td><a href="how-it-works/">How it works</a></td>
+</tr>
+<tr>
+<td>Configure namespaces and TLS</td>
+<td><a href="configuration/">Configuration</a></td>
+</tr>
+<tr>
+<td>Query it</td>
+<td><a href="http-endpoints/">HTTP endpoints</a></td>
+</tr>
+<tr>
+<td>Monitor it</td>
+<td><a href="metrics/">Metrics</a></td>
+</tr>
+</tbody>
+</table>
 
 
 
