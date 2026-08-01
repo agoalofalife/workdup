@@ -1,0 +1,22 @@
+docs/installation.md
+  s_ac96dbb4e33553::t_ac40e99fba6c0c 3-5,7-87,94-131,134-194,196-197,200-231
+  s_ac96dbb4e33553::t_bf1436bc461256 88-93
+  s_ac96dbb4e33553::t_1aec4e57e03853 132-133
+  s_ac96dbb4e33553::t_befc8cb78d3e02 195,198-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "668e562a45cf9054bf7386096b8f25384a8235a0",
+  "prompts": {},
+  "sessions": {
+    "s_ac96dbb4e33553": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f5fa89b-0746-4934-9b8e-5532f28ba410",
+        "model": "claude-opus-5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
