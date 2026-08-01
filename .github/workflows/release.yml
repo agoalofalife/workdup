@@ -1,0 +1,142 @@
+name: release
+
+# Tag-driven: `git tag v0.2.0 && git push --tags` publishes the binaries and
+# the container image the sbp-deploy chart pulls.
+on:
+  push:
+    tags: ["v*"]
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # The image the sbp-deploy workdup chart references.
+  IMAGE: registry.digitalocean.com/a-players/workdup
+
+jobs:
+  # Guard against a tag that disagrees with Cargo.toml — the chart pins an
+  # image tag, so a mismatch here is a mismatch in production.
+  check-version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match Cargo.toml version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          crate=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n1)
+          echo "tag=$tag crate=$crate"
+          [ "$tag" = "$crate" ] || {
+            echo "::error::tag v$tag does not match Cargo.toml version $crate"
+            exit 1
+          }
+
+  # Native runners per target — no cross toolchain. aws-lc-rs (via rustls) needs
+  # cmake and a C compiler, and the temporal protos need protoc; getting those
+  # right under `cross` is more trouble than four runners.
+  build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: check-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,    target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-13,         target: x86_64-apple-darwin }
+          - { os: macos-14,         target: aarch64-apple-darwin }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config protobuf-compiler libprotobuf-dev cmake
+
+      - name: Install build dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf cmake
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          bin=target/${{ matrix.target }}/release/workdup
+          strip "$bin" || true
+          asset="workdup-${GITHUB_REF_NAME}-${{ matrix.target }}.tar.gz"
+          tar -czf "$asset" -C "$(dirname "$bin")" workdup
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # install.sh refuses to install without a matching entry here.
+      - name: Checksums
+        run: cd dist && sha256sum *.tar.gz > SHA256SUMS && cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          generate_release_notes: true
+
+  # DOKS node pools are amd64 only, so one arch is enough for the cluster image.
+  # Add a second native ARM build + `buildx imagetools create` if that changes.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DigitalOcean Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.digitalocean.com
+          username: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          password: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Tags
+        id: tags
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "tags=${IMAGE}:${GITHUB_REF_NAME},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${IMAGE}:dev,${IMAGE}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
