@@ -1,0 +1,19 @@
+docs/how-it-works.md
+  s_ac96dbb4e33553::t_7ed87cfc7981df 5-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "6f129b48e4300b02363afa4d690290d95e908bee",
+  "prompts": {},
+  "sessions": {
+    "s_ac96dbb4e33553": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f5fa89b-0746-4934-9b8e-5532f28ba410",
+        "model": "claude-opus-5"
+      },
+      "human_author": "agoalofalife <agoalofalife@gmail.com>"
+    }
+  }
+}
